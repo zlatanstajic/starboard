@@ -1,3 +1,98 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Target the SweetAlert2 popup specifically */
+.swal2-popup {
+    background-color: #1f2937 !important; /* This is the background */
+}
+.swal2-title {
+    @apply text-white !important;
+}
+.swal2-html-container {
+    @apply text-white !important;
+}
+
+/* Highlight selected table row (light and dark modes) */
+tbody tr.selected {
+    background-color: #1e3a8a; /* Tailwind blue-800 */
+    transition: background-color .12s ease;
+}
+
+/* Dark mode override when site uses the 'dark' class */
+.dark tbody tr.selected {
+    background-color: #1e3a8a; /* Tailwind blue-800 */
+}
+
+/* Ensure text contrast remains acceptable */
+tbody tr.selected td {
+    transition: background-color .12s ease;
+}
+
+.ts-control, .ts-dropdown-content {
+    background-color: inherit;
+    color: inherit;
+    border-radius: .375rem;
+}
+
+.dark .ts-control, .dark .ts-dropdown-content {
+    /* allow parent or wrapper to define dark-mode colors */
+    background-color: inherit;
+    color: inherit;
+}
+
+.ts-wrapper.multi .ts-control > div {
+    background-color: rgb(31 41 55 / var(--tw-bg-opacity, 1));
+    color: #f9fafb;
+}
+
+.ts-control, .ts-dropdown {
+    border: 1px solid #6b7280;
+}
+
+.ts-control .item {
+    background-color: inherit;
+    color: inherit;
+    margin-right: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.375rem;
+}
+
+.dark .ts-control .item {
+    background-color: inherit;
+    color: inherit;
+}
+
+.ts-dropdown {
+    background-color: inherit;
+    color: #ffffff;
+}
+
+.ts-dropdown .active {
+    background-color: #2563eb;
+    color: #ffffff;
+}
+
+.ts-control input {
+    color: inherit;
+}
+
+.ts-control .placeholder {
+    color: #6b7280;
+}
+
+.dark .ts-control .placeholder {
+    color: #9ca3af;
+}
+
+/* Make links inside tables underlined and visible in dark mode */
+table td a,
+table th a {
+    text-decoration: underline;
+    color: #ffffff !important;
+}
+
+.dark table td a,
+.dark table th a {
+    color: #ffffff !important;
+}

@@ -1,24 +1,42 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "zlatanstajic/starboard",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
-    "license": "MIT",
+    "description": "All your favorite creators, one central view.",
+    "authors": [
+        {
+            "name": "zlatanstajic",
+            "email": "contact@zlatanstajic.com"
+        }
+    ],
+    "keywords": ["laravel", "framework", "starboard", "creator", "content", "aggregator"],
+    "license": "proprietary",
     "require": {
-        "php": "^8.2",
+        "php": "8.3.*",
         "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.10.1"
+        "laravel/mcp": "^0.5.9",
+        "laravel/tinker": "^2.10.1",
+        "realrashid/sweet-alert": "^7.3",
+        "spatie/laravel-query-builder": "^6.3"
     },
     "require-dev": {
+        "barryvdh/laravel-debugbar": "^3.16",
+        "barryvdh/laravel-ide-helper": "^3.6",
+        "brianium/paratest": "^7.8",
+        "driftingly/rector-laravel": "^2.1",
         "fakerphp/faker": "^1.23",
+        "larastan/larastan": "3.2.*",
+        "laravel/boost": "^2.0",
         "laravel/breeze": "^2.3",
         "laravel/pail": "^1.2.2",
-        "laravel/pint": "^1.24",
+        "laravel/pint": "^1.26",
         "laravel/sail": "^1.41",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
-        "phpunit/phpunit": "^11.5.3"
+        "peckphp/peck": "^0.2.0",
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^11.5.3",
+        "spatie/laravel-db-snapshots": "^2.7"
     },
     "autoload": {
         "psr-4": {
@@ -33,25 +51,12 @@
         }
     },
     "scripts": {
-        "setup": [
-            "composer install",
-            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
-            "@php artisan key:generate",
-            "@php artisan migrate --force",
-            "npm install",
-            "npm run build"
-        ],
-        "dev": [
-            "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
-        ],
-        "test": [
-            "@php artisan config:clear --ansi",
-            "@php artisan test"
-        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
+        ],
+        "post-install-cmd": [
+            "php artisan optimize"
         ],
         "post-update-cmd": [
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
@@ -66,6 +71,54 @@
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ],
+        "setup": [
+            "composer install",
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
+            "@php artisan key:generate",
+            "@php artisan migrate:fresh --seed --force",
+            "@artisan:ide-helper",
+            "php artisan sweetalert:publish",
+            "npm install",
+            "npm run build",
+            "@test"
+        ],
+        "serve": [
+            "@artisan:clear",
+            "Composer\\Config::disableProcessTimeout",
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
+        ],
+        "test": [
+            "@artisan:clear",
+            "@test:rector",
+            "@test:peck",
+            "@test:pint",
+            "@test:phpstan",
+            "@test:phpunit"
+        ],
+        "test:peck": "vendor/bin/peck",
+        "test:pint": "./vendor/bin/pint --parallel --test",
+        "test:phpstan": "./vendor/bin/phpstan analyse",
+        "test:rector": "./vendor/bin/rector process --dry-run",
+        "test:phpunit": "php artisan test --coverage --min=95",
+        "fix": [
+            "@fix:rector",
+            "@fix:pint"
+        ],
+        "fix:pint": "./vendor/bin/pint --parallel",
+        "fix:rector": "./vendor/bin/rector process",
+        "backup": [
+            "php artisan snapshot:create starboard_backup"
+        ],
+        "artisan:clear": [
+            "php artisan route:clear --ansi",
+            "php artisan cache:clear --ansi",
+            "php artisan config:clear --ansi"
+        ],
+        "artisan:ide-helper": [
+            "php artisan ide-helper:generate",
+            "php artisan ide-helper:models -N",
+            "php artisan ide-helper:meta"
         ]
     },
     "extra": {

@@ -1,16 +1,16 @@
 <?php
 
-namespace App\Exceptions\User;
+declare(strict_types=1);
+
+namespace App\Exceptions\NetworkTag;
 
 use Exception;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Exception thrown when the provided old password is incorrect.
- *
- * @package App\Exceptions\User
+ * Exception thrown when a network tag deletion operation fails.
  */
-final class UserIncorrectOldPasswordException extends Exception
+final class NetworkTagDeletionFailedException extends Exception
 {
     /**
      * Construct the exception.
@@ -18,7 +18,7 @@ final class UserIncorrectOldPasswordException extends Exception
     public function __construct()
     {
         parent::__construct(
-            __('messages.user.incorrect_old_password'),
+            __('messages.network_tag.deletion_failed'),
             Response::HTTP_CONFLICT
         );
     }

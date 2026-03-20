@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Exceptions\NetworkProfile;
 
 use Exception;
@@ -7,8 +9,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Exception thrown when a network profile deletion operation fails.
- *
- * @package App\Exceptions\NetworkProfile
  */
 final class NetworkProfileDeletionFailedException extends Exception
 {

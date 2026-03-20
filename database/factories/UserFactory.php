@@ -1,20 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
-/**
- * @package Database\Factories
- */
 class UserFactory extends Factory
 {
     /**
      * Define the model's default state.
-     *
-     * @return array<string, mixed>
      */
     public function definition(): array
     {
@@ -44,8 +41,8 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'name' => 'Admin',
-            'email' => 'admin@example.com',
-            'password' => Hash::make('admin'),
+            'email' => 'admin@starboard.com',
+            'password' => Hash::make('starboard'),
         ]);
     }
 }

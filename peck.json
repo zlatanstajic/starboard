@@ -1,0 +1,22 @@
+{
+    "preset": "laravel",
+    "ignore": {
+        "words": [
+            "php",
+            "paginator",
+            "unpaginated",
+            "shortener",
+            "tik",
+            "tok",
+            "dropdown",
+            "nav",
+            "js",
+            "postcss",
+            "filesystems",
+            "sweetalert",
+            "lookups",
+            "rethrows"
+        ],
+        "paths": []
+    }
+}

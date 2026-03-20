@@ -1,0 +1,10 @@
+{
+    "agents": [
+        "copilot"
+    ],
+    "guidelines": true,
+    "skills": [
+        "mcp-development",
+        "tailwindcss-development"
+    ]
+}

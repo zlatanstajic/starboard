@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Enums\DatabaseTableNamesEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -14,10 +16,15 @@ return new class extends Migration
     {
         Schema::create(DatabaseTableNamesEnum::network_sources->value, function (Blueprint $table) {
             $table->id();
-            $table->string('name', 50)->unique();
-            $table->string('url', 150)->unique();
+            $table->foreignId('user_id')
+                ->constrained(DatabaseTableNamesEnum::users->value)
+                ->cascadeOnDelete();
+            $table->string('name', 50);
+            $table->string('url', 150);
             $table->timestamps();
             $table->softDeletes();
+
+            $table->unique(['user_id', 'name', 'url']);
         });
     }
 
