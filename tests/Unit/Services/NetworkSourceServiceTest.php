@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Services;
 
+use App\Models\NetworkSource;
 use App\Repositories\NetworkSourceRepository;
 use App\Services\NetworkSourceService;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -41,14 +42,29 @@ class NetworkSourceServiceTest extends TestCase
 
         $this->assertSame($paginator, $result);
         $this->assertInstanceOf(LengthAwarePaginator::class, $result);
-        $this->assertEquals(10, $result->total());
-        $this->assertEquals(1, $result->currentPage());
+        $this->assertSame(10, $result->total());
+        $this->assertSame(1, $result->currentPage());
+    }
+
+    public function test_get_all_passes_paginate_and_with_count_flags(): void
+    {
+        $paginator = new LengthAwarePaginator(collect(), 0, 10, 1);
+
+        $this->repository
+            ->shouldReceive('getAll')
+            ->once()
+            ->with(true, 'name', true)
+            ->andReturn($paginator);
+
+        $result = $this->service->getAll(paginate: true, withCount: true);
+
+        $this->assertSame($paginator, $result);
     }
 
     public function test_create_delegates_to_repository_and_returns_network_source(): void
     {
         $data = ['name' => 'Test Source', 'url' => 'https://example.com/{username}'];
-        $networkSource = new \App\Models\NetworkSource($data);
+        $networkSource = new NetworkSource($data);
 
         $this->repository
             ->shouldReceive('upsert')
@@ -59,15 +75,15 @@ class NetworkSourceServiceTest extends TestCase
         $result = $this->service->create($data);
 
         $this->assertSame($networkSource, $result);
-        $this->assertEquals('Test Source', $result->name);
-        $this->assertEquals('https://example.com/{username}', $result->url);
+        $this->assertSame('Test Source', $result->name);
+        $this->assertSame('https://example.com/{username}', $result->url);
     }
 
     public function test_update_delegates_to_repository_and_returns_updated_network_source(): void
     {
-        $existingSource = new \App\Models\NetworkSource(['name' => 'Old Name', 'url' => 'https://old-url.com/{username}']);
+        $existingSource = new NetworkSource(['name' => 'Old Name', 'url' => 'https://old-url.com/{username}']);
         $data = ['name' => 'Updated Name', 'url' => 'https://updated-url.com/{username}'];
-        $updatedSource = new \App\Models\NetworkSource($data);
+        $updatedSource = new NetworkSource($data);
 
         $this->repository
             ->shouldReceive('upsert')
@@ -78,22 +94,29 @@ class NetworkSourceServiceTest extends TestCase
         $result = $this->service->update($existingSource, $data);
 
         $this->assertSame($updatedSource, $result);
-        $this->assertEquals('Updated Name', $result->name);
-        $this->assertEquals('https://updated-url.com/{username}', $result->url);
+        $this->assertSame('Updated Name', $result->name);
+        $this->assertSame('https://updated-url.com/{username}', $result->url);
     }
 
-    public function test_delete_delegates_to_repository_and_returns_boolean(): void
+    public function test_delete_delegates_to_repository_and_returns_true(): void
     {
-        $id = 1;
-
         $this->repository
             ->shouldReceive('delete')
             ->once()
-            ->with($id)
+            ->with(1)
             ->andReturn(true);
 
-        $result = $this->service->delete($id);
+        $this->assertTrue($this->service->delete(1));
+    }
 
-        $this->assertTrue($result);
+    public function test_delete_returns_false_when_repository_fails(): void
+    {
+        $this->repository
+            ->shouldReceive('delete')
+            ->once()
+            ->with(999)
+            ->andReturn(false);
+
+        $this->assertFalse($this->service->delete(999));
     }
 }

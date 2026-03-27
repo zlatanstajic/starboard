@@ -233,7 +233,7 @@ class NetworkProfileRepository extends Repository
             ? $value
             : (str_contains($value, ',') ? explode(',', $value) : [$value]);
 
-        $ids = array_values(array_filter(array_map(fn ($v) => trim((string) $v), (array) $ids), fn ($v) => $v !== ''));
+        $ids = array_values(array_filter(array_map(fn ($v) => mb_trim((string) $v), (array) $ids), fn ($v) => $v !== ''));
         if (empty($ids)) {
             return;
         }
@@ -276,7 +276,7 @@ class NetworkProfileRepository extends Repository
             : (str_contains($value, ',') ? explode(',', $value) : [$value]);
 
         // Normalize: trim and remove empty values
-        $ids = array_values(array_filter(array_map(fn ($v) => trim((string) $v), (array) $ids), fn ($v) => $v !== ''));
+        $ids = array_values(array_filter(array_map(fn ($v) => mb_trim((string) $v), (array) $ids), fn ($v) => $v !== ''));
         if (empty($ids)) {
             return;
         }

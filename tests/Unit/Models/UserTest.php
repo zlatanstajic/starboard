@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Models;
 
+use App\Models\NetworkProfile;
 use App\Models\NetworkSource;
+use App\Models\NetworkTag;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
@@ -54,7 +56,46 @@ class UserTest extends TestCase
         NetworkSource::factory()->count(3)->create(['user_id' => $user->id]);
 
         $this->assertInstanceOf(HasMany::class, $user->networkSources());
-        $this->assertTrue(count($user->networkSources) >= 3);
+        $this->assertCount(3, $user->networkSources);
         $this->assertInstanceOf(NetworkSource::class, $user->networkSources->first());
+    }
+
+    public function test_user_has_many_network_profiles(): void
+    {
+        $user = User::factory()->create();
+        $source = NetworkSource::factory()->create(['user_id' => $user->id]);
+        NetworkProfile::factory()->count(2)->create([
+            'user_id' => $user->id,
+            'network_source_id' => $source->id,
+        ]);
+
+        $this->assertInstanceOf(HasMany::class, $user->networkProfiles());
+        $this->assertCount(2, $user->networkProfiles);
+        $this->assertInstanceOf(NetworkProfile::class, $user->networkProfiles->first());
+    }
+
+    public function test_user_has_many_network_tags(): void
+    {
+        $user = User::factory()->create();
+        NetworkTag::factory()->count(2)->create(['user_id' => $user->id]);
+
+        $this->assertInstanceOf(HasMany::class, $user->networkTags());
+        $this->assertCount(2, $user->networkTags);
+        $this->assertInstanceOf(NetworkTag::class, $user->networkTags->first());
+    }
+
+    public function test_deleting_user_soft_deletes_related_models(): void
+    {
+        $user = User::factory()->create();
+        $source = NetworkSource::factory()->create(['user_id' => $user->id]);
+        $profile = NetworkProfile::factory()->create(['user_id' => $user->id]);
+        $tag = NetworkTag::factory()->create(['user_id' => $user->id]);
+
+        $user->delete();
+
+        $this->assertSoftDeleted($user);
+        $this->assertSoftDeleted('network_sources', ['id' => $source->id]);
+        $this->assertSoftDeleted('network_profiles', ['id' => $profile->id]);
+        $this->assertSoftDeleted('network_tags', ['id' => $tag->id]);
     }
 }

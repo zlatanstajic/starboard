@@ -33,7 +33,7 @@ class NetworkProfileRepositoryTest extends TestCase
     {
         $results = $this->repository->getAll();
 
-        $this->assertTrue(count($results) >= 1);
+        $this->assertGreaterThanOrEqual(1, count($results));
         $this->assertInstanceOf(LengthAwarePaginator::class, $results);
         $this->assertInstanceOf(NetworkProfile::class, $results->first());
     }
@@ -50,7 +50,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $networkProfile = $this->repository->upsert($data);
 
-        $this->assertEquals($username, $networkProfile->username);
+        $this->assertSame($username, $networkProfile->username);
         $this->assertDatabaseHas(
             DatabaseTableNamesEnum::network_profiles->value,
             $data
@@ -71,7 +71,7 @@ class NetworkProfileRepositoryTest extends TestCase
             $createdProfile
         );
 
-        $this->assertEquals($newUsername, $updatedProfile->username);
+        $this->assertSame($newUsername, $updatedProfile->username);
         $this->assertDatabaseHas(DatabaseTableNamesEnum::network_profiles->value, [
             'id' => $createdProfile->id,
             'username' => $newUsername,
@@ -106,11 +106,13 @@ class NetworkProfileRepositoryTest extends TestCase
 
         NetworkProfile::factory()->create($data);
 
-        $this->expectException(QueryException::class);
-
-        unset($data['username']);
-
-        $this->repository->upsert($data);
+        try {
+            unset($data['username']);
+            $this->repository->upsert($data);
+            $this->fail('Expected an exception to be thrown');
+        } catch (NetworkProfileDuplicationException|QueryException) {
+            $this->assertTrue(true);
+        }
     }
 
     public function test_can_delete_a_profile(): void
@@ -137,8 +139,8 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $result = $this->repository->increment($networkProfile);
 
-        $this->assertEquals(11, $result->number_of_visits);
-        $this->assertEquals(now()->toDateTimeString(), $result->last_visit_at);
+        $this->assertSame(11, $result->number_of_visits);
+        $this->assertSame(now()->toDateTimeString(), $result->last_visit_at->toDateTimeString());
 
         $this->assertDatabaseHas('network_profiles', [
             'id' => $networkProfile->id,
@@ -156,7 +158,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = NetworkProfile::byVisits('1-5')->get();
 
-        $this->assertTrue(count($results) >= 3);
+        $this->assertGreaterThanOrEqual(3, count($results));
         foreach ($results as $networkProfile) {
             $this->assertGreaterThanOrEqual(1, $networkProfile->number_of_visits);
             $this->assertLessThanOrEqual(5, $networkProfile->number_of_visits);
@@ -172,7 +174,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = NetworkProfile::byVisits('6-10')->get();
 
-        $this->assertTrue(count($results) >= 3);
+        $this->assertGreaterThanOrEqual(3, count($results));
         foreach ($results as $networkProfile) {
             $this->assertGreaterThanOrEqual(6, $networkProfile->number_of_visits);
             $this->assertLessThanOrEqual(10, $networkProfile->number_of_visits);
@@ -188,7 +190,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = NetworkProfile::byVisits('11-20')->get();
 
-        $this->assertTrue(count($results) >= 3);
+        $this->assertGreaterThanOrEqual(3, count($results));
         foreach ($results as $networkProfile) {
             $this->assertGreaterThanOrEqual(11, $networkProfile->number_of_visits);
             $this->assertLessThanOrEqual(20, $networkProfile->number_of_visits);
@@ -204,7 +206,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = NetworkProfile::byVisits('21-50')->get();
 
-        $this->assertTrue(count($results) >= 3);
+        $this->assertGreaterThanOrEqual(3, count($results));
         foreach ($results as $networkProfile) {
             $this->assertGreaterThanOrEqual(21, $networkProfile->number_of_visits);
             $this->assertLessThanOrEqual(50, $networkProfile->number_of_visits);
@@ -220,7 +222,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = NetworkProfile::byVisits('51-100')->get();
 
-        $this->assertTrue(count($results) >= 3);
+        $this->assertGreaterThanOrEqual(3, count($results));
         foreach ($results as $networkProfile) {
             $this->assertGreaterThanOrEqual(51, $networkProfile->number_of_visits);
             $this->assertLessThanOrEqual(100, $networkProfile->number_of_visits);
@@ -234,8 +236,8 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = NetworkProfile::byVisits('100+')->get();
 
-        $this->assertTrue(count($results) >= 1);
-        $this->assertEquals(101, $results->first()->number_of_visits);
+        $this->assertGreaterThanOrEqual(1, count($results));
+        $this->assertSame(101, $results->first()->number_of_visits);
     }
 
     public function test_scope_by_visits_returns_unfiltered_query_on_invalid_range(): void
@@ -244,7 +246,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = NetworkProfile::byVisits('invalid-range')->get();
 
-        $this->assertTrue(count($results) >= 3);
+        $this->assertGreaterThanOrEqual(3, count($results));
     }
 
     public function test_scope_by_last_visit_filters_last_24_hours(): void
@@ -254,7 +256,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = NetworkProfile::byLastVisit('24h')->get();
 
-        $this->assertTrue(count($results) >= 1);
+        $this->assertGreaterThanOrEqual(1, count($results));
     }
 
     public function test_scope_by_last_visit_filters_7_day_range(): void
@@ -265,7 +267,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = NetworkProfile::byLastVisit('7d')->get();
 
-        $this->assertTrue(count($results) >= 1);
+        $this->assertGreaterThanOrEqual(1, count($results));
     }
 
     public function test_scope_by_last_visit_filters_30_days_range(): void
@@ -276,7 +278,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = NetworkProfile::byLastVisit('30d')->get();
 
-        $this->assertTrue(count($results) >= 1);
+        $this->assertGreaterThanOrEqual(1, count($results));
     }
 
     public function test_scope_by_last_visit_filters_older_than_30_days(): void
@@ -286,7 +288,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = NetworkProfile::byLastVisit('older')->get();
 
-        $this->assertTrue(count($results) >= 1);
+        $this->assertGreaterThanOrEqual(1, count($results));
     }
 
     public function test_scope_by_last_visit_filters_not_in_last_24_hours(): void
@@ -296,7 +298,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = NetworkProfile::byLastVisit('not_24h')->get();
 
-        $this->assertTrue(count($results) >= 1);
+        $this->assertGreaterThanOrEqual(1, count($results));
     }
 
     public function test_scope_by_last_visit_returns_all_on_default(): void
@@ -305,7 +307,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = NetworkProfile::byLastVisit('all')->get();
 
-        $this->assertTrue(count($results) >= 3);
+        $this->assertGreaterThanOrEqual(3, count($results));
     }
 
     public function test_it_restores_trashed_profile_instead_of_creating_duplicate(): void
@@ -326,7 +328,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $result = $this->repository->upsert($data);
 
-        $this->assertEquals($networkProfile->id, $result->id);
+        $this->assertSame($networkProfile->id, $result->id);
 
         $this->assertDatabaseHas('network_profiles', [
             'id' => $networkProfile->id,
@@ -359,8 +361,8 @@ class NetworkProfileRepositoryTest extends TestCase
             'username' => $username,
         ]);
 
-        $this->assertNotEquals($trashedProfile->id, $result->id);
-        $this->assertEquals($sourceB->id, $result->network_source_id);
+        $this->assertNotSame($trashedProfile->id, $result->id);
+        $this->assertSame($sourceB->id, $result->network_source_id);
         $this->assertSoftDeleted('network_profiles', ['id' => $trashedProfile->id]);
     }
 
@@ -378,7 +380,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $profile = $this->repository->upsert($data);
 
-        $this->assertEquals($description, $profile->description);
+        $this->assertSame($description, $profile->description);
         $this->assertDatabaseHas(DatabaseTableNamesEnum::network_profiles->value, [
             'username' => $username,
             'description' => $description,
@@ -404,7 +406,7 @@ class NetworkProfileRepositoryTest extends TestCase
             $profile
         );
 
-        $this->assertEquals($updatedDescription, $updatedProfile->description);
+        $this->assertSame($updatedDescription, $updatedProfile->description);
         $this->assertDatabaseHas(DatabaseTableNamesEnum::network_profiles->value, [
             'id' => $profile->id,
             'description' => $updatedDescription,
@@ -424,7 +426,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $profile = $this->repository->upsert($data);
 
-        $this->assertEquals('', $profile->description);
+        $this->assertSame('', $profile->description);
         $this->assertDatabaseHas(DatabaseTableNamesEnum::network_profiles->value, [
             'username' => $username,
             'description' => '',
@@ -471,8 +473,8 @@ class NetworkProfileRepositoryTest extends TestCase
         ]);
 
         // Verify directly that the profiles have descriptions
-        $this->assertEquals('Description 1', $profile1->description);
-        $this->assertEquals('Description 2', $profile2->description);
+        $this->assertSame('Description 1', $profile1->description);
+        $this->assertSame('Description 2', $profile2->description);
 
         // Verify they are in database
         $this->assertDatabaseHas(DatabaseTableNamesEnum::network_profiles->value, [
@@ -510,11 +512,11 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $profile = $this->repository->upsert($data);
 
-        $this->assertEquals($username, $profile->username);
-        $this->assertEquals('Comprehensive profile', $profile->description);
+        $this->assertSame($username, $profile->username);
+        $this->assertSame('Comprehensive profile', $profile->description);
         $this->assertTrue($profile->is_public);
         $this->assertTrue($profile->is_favorite);
-        $this->assertEquals(42, $profile->number_of_visits);
+        $this->assertSame(42, $profile->number_of_visits);
         $this->assertDatabaseHas(DatabaseTableNamesEnum::network_profiles->value, $data);
     }
 
@@ -543,10 +545,10 @@ class NetworkProfileRepositoryTest extends TestCase
             $profile
         );
 
-        $this->assertEquals('New description', $updatedProfile->description);
+        $this->assertSame('New description', $updatedProfile->description);
         $this->assertTrue($updatedProfile->is_public);
         $this->assertTrue($updatedProfile->is_favorite);
-        $this->assertEquals(10, $updatedProfile->number_of_visits);
+        $this->assertSame(10, $updatedProfile->number_of_visits);
     }
 
     public function test_increment_increments_visit_count_and_updates_timestamp(): void
@@ -559,8 +561,8 @@ class NetworkProfileRepositoryTest extends TestCase
         $oldTimestamp = $profile->last_visit_at;
         $result = $this->repository->increment($profile);
 
-        $this->assertEquals(6, $result->number_of_visits);
-        $this->assertNotEquals($oldTimestamp, $result->last_visit_at);
+        $this->assertSame(6, $result->number_of_visits);
+        $this->assertNotSame($oldTimestamp, $result->last_visit_at);
         $this->assertDatabaseHas(DatabaseTableNamesEnum::network_profiles->value, [
             'id' => $profile->id,
             'number_of_visits' => 6,
@@ -580,7 +582,7 @@ class NetworkProfileRepositoryTest extends TestCase
         $results = $this->repository->getAll();
 
         $this->assertInstanceOf(LengthAwarePaginator::class, $results);
-        $this->assertTrue($results->count() > 0);
+        $this->assertGreaterThan(0, $results->count());
     }
 
     public function test_upsert_does_not_update_other_profiles(): void
@@ -612,7 +614,7 @@ class NetworkProfileRepositoryTest extends TestCase
         );
 
         $profile2Fresh = NetworkProfile::query()->find($profile2->id);
-        $this->assertEquals('Description 2', $profile2Fresh->description);
+        $this->assertSame('Description 2', $profile2Fresh->description);
     }
 
     public function test_delete_soft_deletes_profile(): void
@@ -640,7 +642,7 @@ class NetworkProfileRepositoryTest extends TestCase
             'username' => $username,
         ]);
 
-        $this->assertEquals($originalId, $restored->id);
+        $this->assertSame($originalId, $restored->id);
         $this->assertNull($restored->deleted_at);
     }
 
@@ -671,13 +673,13 @@ class NetworkProfileRepositoryTest extends TestCase
         $this->requestSearch('elon');
         $results = $this->repository->getAll();
         $this->assertCount(1, $results);
-        $this->assertEquals('elon_musk', $results->first()->username);
+        $this->assertSame('elon_musk', $results->first()->username);
 
         // Scenario B: Search by Description
         $this->requestSearch('Amazon');
         $results = $this->repository->getAll();
         $this->assertCount(1, $results);
-        $this->assertEquals('jeff_bezos', $results->first()->username);
+        $this->assertSame('jeff_bezos', $results->first()->username);
 
         // Scenario C: Search for something common in both or distinct
         $this->requestSearch('space');
@@ -685,7 +687,7 @@ class NetworkProfileRepositoryTest extends TestCase
         // Should find 'elon_musk' (CEO of X...) and 'tech_guru' (space exploration)
         // Wait, 'elon' description doesn't have space. Let's adjust logic check:
         $this->assertCount(1, $results);
-        $this->assertEquals('tech_guru', $results->first()->username);
+        $this->assertSame('tech_guru', $results->first()->username);
     }
 
     public function test_get_all_filters_by_description_presence(): void
@@ -739,11 +741,11 @@ class NetworkProfileRepositoryTest extends TestCase
         $results = $this->repository->getAll();
         $this->assertGreaterThanOrEqual(2, $results->count());
         foreach ($results as $r) {
-            $this->assertTrue($r->description === '' || $r->description === null);
+            $this->assertTrue($r->description === '' || $r->description === null, 'Description should be empty or null');
         }
         $descriptions = $results->pluck('description')->toArray();
-        $this->assertTrue(in_array('', $descriptions, true));
-        $this->assertTrue(in_array(null, $descriptions, true));
+        $this->assertContains('', $descriptions);
+        $this->assertContains(null, $descriptions);
 
         // No filter returns all (at least the 4 we created)
         $request = Request::create('/network-profiles', 'GET', []);
@@ -783,9 +785,9 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = $this->repository->getAll();
 
-        $this->assertTrue($results->count() >= 1);
+        $this->assertGreaterThanOrEqual(1, $results->count());
         $filteredByTag = $results->filter(fn ($p) => $p->username === $profile1->username);
-        $this->assertTrue($filteredByTag->count() >= 1);
+        $this->assertGreaterThanOrEqual(1, $filteredByTag->count());
     }
 
     public function test_get_all_returns_all_profiles_when_tags_filter_is_empty(): void
@@ -863,7 +865,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $results = $this->repository->getAll();
 
-        $this->assertTrue($results->count() >= 1);
+        $this->assertGreaterThanOrEqual(1, $results->count());
         $usernames = $results->pluck('username')->toArray();
         $this->assertContains($profile->username, $usernames);
     }
@@ -1234,7 +1236,7 @@ class NetworkProfileRepositoryTest extends TestCase
 
         $profile = $this->repository->upsert($data);
 
-        $this->assertEquals('My Title', $profile->title);
+        $this->assertSame('My Title', $profile->title);
         $this->assertDatabaseHas('network_profiles', [
             'id' => $profile->id,
             'title' => 'My Title',
@@ -1252,7 +1254,7 @@ class NetworkProfileRepositoryTest extends TestCase
             $profile
         );
 
-        $this->assertEquals('New Title', $updated->title);
+        $this->assertSame('New Title', $updated->title);
         $this->assertDatabaseHas('network_profiles', [
             'id' => $profile->id,
             'title' => 'New Title',

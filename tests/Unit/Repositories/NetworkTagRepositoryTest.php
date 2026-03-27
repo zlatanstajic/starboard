@@ -37,23 +37,25 @@ class NetworkTagRepositoryTest extends TestCase
     public function test_get_all_returns_paginated_results(): void
     {
         $user = User::factory()->create();
+        $this->actingAs($user);
         NetworkTag::factory()->count(2)->create(['user_id' => $user->id]);
 
         $results = $this->repository->getAll(paginate: true);
 
         $this->assertInstanceOf(LengthAwarePaginator::class, $results);
-        $this->assertTrue($results->total() >= 2);
+        $this->assertGreaterThanOrEqual(2, $results->total());
     }
 
     public function test_get_all_returns_unpaginated_results(): void
     {
         $user = User::factory()->create();
+        $this->actingAs($user);
         NetworkTag::factory()->count(2)->create(['user_id' => $user->id]);
 
         $results = $this->repository->getAll(paginate: false);
 
         $this->assertInstanceOf(LengthAwarePaginator::class, $results);
-        $this->assertTrue($results->total() >= 2);
+        $this->assertGreaterThanOrEqual(2, $results->total());
     }
 
     public function test_upsert_creates_new_record(): void
@@ -79,8 +81,8 @@ class NetworkTagRepositoryTest extends TestCase
 
         $result = $this->repository->upsert($data, $tag);
 
-        $this->assertEquals('Updated', $result->name);
-        $this->assertEquals($tag->id, $result->id);
+        $this->assertSame('Updated', $result->name);
+        $this->assertSame($tag->id, $result->id);
     }
 
     public function test_upsert_restores_soft_deleted_record(): void
@@ -98,9 +100,9 @@ class NetworkTagRepositoryTest extends TestCase
         $data = ['user_id' => $user->id, 'name' => $name, 'description' => 'restored'];
         $result = $this->repository->upsert($data);
 
-        $this->assertEquals($trashed->id, $result->id);
+        $this->assertSame($trashed->id, $result->id);
         $this->assertNull($result->deleted_at);
-        $this->assertEquals('restored', $result->description);
+        $this->assertSame('restored', $result->description);
     }
 
     public function test_upsert_restore_detaches_old_pivot_relationships(): void
@@ -126,7 +128,7 @@ class NetworkTagRepositoryTest extends TestCase
         $data = ['user_id' => $user->id, 'name' => $name, 'description' => 'restored'];
         $result = $this->repository->upsert($data);
 
-        $this->assertEquals($trashed->id, $result->id);
+        $this->assertSame($trashed->id, $result->id);
         $this->assertDatabaseMissing('network_profile_network_tag', [
             'network_tag_id' => $trashed->id,
             'network_profile_id' => $profile->id,
@@ -150,6 +152,21 @@ class NetworkTagRepositoryTest extends TestCase
         $this->repository->upsert($data);
     }
 
+    public function test_upsert_rethrows_generic_exception_during_update(): void
+    {
+        $mock = $this->getMockBuilder(NetworkTag::class)
+            ->onlyMethods(['update'])
+            ->getMock();
+
+        $mock->method('update')
+            ->willThrowException(new Exception('Generic Error', 500));
+
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('Generic Error');
+
+        $this->repository->upsert(['name' => 'New Name', 'description' => 'x'], $mock);
+    }
+
     public function test_delete_returns_true_on_success(): void
     {
         $user = User::factory()->create();
@@ -168,52 +185,36 @@ class NetworkTagRepositoryTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function test_upsert_rethrows_generic_exception_during_update(): void
-    {
-        $mock = $this->getMockBuilder(NetworkTag::class)
-            ->onlyMethods(['update'])
-            ->getMock();
-
-        $mock->method('update')
-            ->willThrowException(new Exception('Generic Error', 500));
-
-        $this->expectException(Exception::class);
-        $this->expectExceptionMessage('Generic Error');
-
-        $this->repository->upsert(['name' => 'New Name', 'description' => 'x'], $mock);
-    }
-
     public function test_get_all_without_with_count_does_not_include_network_profiles_count(): void
     {
         $user = User::factory()->create();
+        $this->actingAs($user);
+
         $tag = NetworkTag::factory()->create(['user_id' => $user->id]);
         $profile = NetworkProfile::factory()->create(['user_id' => $user->id]);
-
-        // attach pivot
         $tag->networkProfiles()->attach($profile->id);
 
         $results = $this->repository->getAll(paginate: false, defaultSort: 'name', withCount: false);
 
         $first = $results->first();
-
-        $this->assertIsObject($first);
-        $this->assertFalse(array_key_exists('network_profiles_count', $first->getAttributes()));
+        $this->assertNotNull($first);
+        $this->assertArrayNotHasKey('network_profiles_count', $first->getAttributes());
     }
 
     public function test_get_all_with_with_count_includes_network_profiles_count(): void
     {
         $user = User::factory()->create();
+        $this->actingAs($user);
+
         $tag = NetworkTag::factory()->create(['user_id' => $user->id]);
         $profile1 = NetworkProfile::factory()->create(['user_id' => $user->id]);
         $profile2 = NetworkProfile::factory()->create(['user_id' => $user->id]);
-
         $tag->networkProfiles()->attach([$profile1->id, $profile2->id]);
 
         $results = $this->repository->getAll(paginate: false, defaultSort: 'name', withCount: true);
 
         $first = $results->first();
-
-        $this->assertIsObject($first);
-        $this->assertTrue(array_key_exists('network_profiles_count', $first->getAttributes()));
+        $this->assertNotNull($first);
+        $this->assertArrayHasKey('network_profiles_count', $first->getAttributes());
     }
 }

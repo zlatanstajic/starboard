@@ -36,12 +36,25 @@ class NetworkSourceRepositoryTest extends TestCase
     public function test_get_all_returns_paginated_results(): void
     {
         $user = User::factory()->create();
+        $this->actingAs($user);
         NetworkSource::factory()->count(2)->create(['user_id' => $user->id]);
 
         $results = $this->repository->getAll(paginate: true);
 
         $this->assertInstanceOf(LengthAwarePaginator::class, $results);
-        $this->assertTrue($results->total() >= 2);
+        $this->assertGreaterThanOrEqual(2, $results->total());
+    }
+
+    public function test_get_all_returns_unpaginated_results(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        NetworkSource::factory()->count(2)->create(['user_id' => $user->id]);
+
+        $results = $this->repository->getAll(paginate: false);
+
+        $this->assertInstanceOf(LengthAwarePaginator::class, $results);
+        $this->assertGreaterThanOrEqual(2, $results->total());
     }
 
     public function test_upsert_creates_new_record(): void
@@ -67,8 +80,8 @@ class NetworkSourceRepositoryTest extends TestCase
 
         $result = $this->repository->upsert($data, $source);
 
-        $this->assertEquals('Updated', $result->name);
-        $this->assertEquals($source->id, $result->id);
+        $this->assertSame('Updated', $result->name);
+        $this->assertSame($source->id, $result->id);
     }
 
     public function test_upsert_restores_soft_deleted_record(): void
@@ -88,7 +101,7 @@ class NetworkSourceRepositoryTest extends TestCase
         $data = ['user_id' => $user->id, 'name' => $name, 'url' => $url];
         $result = $this->repository->upsert($data);
 
-        $this->assertEquals($trashed->id, $result->id);
+        $this->assertSame($trashed->id, $result->id);
         $this->assertNull($result->deleted_at);
     }
 
@@ -109,6 +122,21 @@ class NetworkSourceRepositoryTest extends TestCase
         $this->repository->upsert($data);
     }
 
+    public function test_upsert_rethrows_generic_exception_during_update(): void
+    {
+        $mock = $this->getMockBuilder(NetworkSource::class)
+            ->onlyMethods(['update'])
+            ->getMock();
+
+        $mock->method('update')
+            ->willThrowException(new Exception('Generic Error', 500));
+
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('Generic Error');
+
+        $this->repository->upsert(['name' => 'New Name'], $mock);
+    }
+
     public function test_delete_returns_true_on_success(): void
     {
         $user = User::factory()->create();
@@ -127,43 +155,30 @@ class NetworkSourceRepositoryTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function test_upsert_rethrows_generic_exception_during_update(): void
-    {
-        $mock = $this->getMockBuilder(NetworkSource::class)
-            ->onlyMethods(['update'])
-            ->getMock();
-
-        $mock->method('update')
-            ->willThrowException(new Exception('Generic Error', 500));
-
-        $this->expectException(Exception::class);
-        $this->expectExceptionMessage('Generic Error');
-
-        $this->repository->upsert(['name' => 'New Name'], $mock);
-    }
-
     public function test_get_all_without_with_count_does_not_include_network_profiles_count(): void
     {
-        $results = $this->repository->getAll(
-            paginate: false,
-            defaultSort: 'name',
-            withCount: false
-        );
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        NetworkSource::factory()->create(['user_id' => $user->id]);
+
+        $results = $this->repository->getAll(paginate: false, defaultSort: 'name', withCount: false);
 
         $first = $results->first();
-
-        $this->assertIsObject($first);
-        $this->assertFalse(array_key_exists('network_profiles_count', $first->getAttributes()));
+        $this->assertNotNull($first);
+        $this->assertArrayNotHasKey('network_profiles_count', $first->getAttributes());
     }
 
     public function test_get_all_with_with_count_includes_network_profiles_count(): void
     {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        NetworkSource::factory()->create(['user_id' => $user->id]);
+
         $results = $this->repository->getAll(paginate: false, defaultSort: 'name', withCount: true);
 
         $first = $results->first();
-
-        $this->assertIsObject($first);
-        $this->assertTrue(array_key_exists('network_profiles_count', $first->getAttributes()));
+        $this->assertNotNull($first);
+        $this->assertArrayHasKey('network_profiles_count', $first->getAttributes());
     }
 
     public function test_upsert_creates_source_with_exclude_from_dashboard(): void

@@ -2,6 +2,12 @@
 
 > Surf the Web like a pro.
 
+[![Tests](https://github.com/zlatanstajic/starboard/actions/workflows/tests.yml/badge.svg)](https://github.com/zlatanstajic/starboard/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
+[![Coverage: 95%+](https://img.shields.io/badge/Coverage-95%25%2B-brightgreen.svg)](https://github.com/zlatanstajic/starboard/actions)
+[![PHP 8.3+](https://img.shields.io/badge/PHP-8.3%2B-blue.svg)](https://www.php.net/)
+[![Laravel 12](https://img.shields.io/badge/Laravel-12-red.svg)](https://laravel.com/)
+
 A modern, centralized platform to track and manage your favorite creators and influencers across multiple social media networks. Monitor profile visits, organize favorites, and maintain a comprehensive directory of creators all in one place.
 
 ## Features
@@ -30,10 +36,17 @@ A modern, centralized platform to track and manage your favorite creators and in
 
 ## Requirements
 
+### Without Docker
+
 - PHP 8.3 or higher
 - Composer
 - MySQL/MariaDB 5.7+
 - Node.js 16+ (for asset compilation)
+
+### With Docker
+
+- Docker 24+
+- Docker Compose v2+
 
 ## Installation
 
@@ -60,22 +73,87 @@ This command will:
 - Seed the database with sample data
 - Build frontend assets
 
+## Docker
+
+The project ships with a production-ready Docker setup using a multi-stage `Dockerfile` and a `docker-compose.yml` that orchestrates three services: `app` (PHP-FPM 8.3), `nginx`, and `mysql`.
+
+### Quick Start
+
+```bash
+# 1. Copy and configure environment variables
+cp .env.example .env
+
+# 2. Build the image and start all services
+docker compose up -d --build
+
+# 3. Seed the database (first run only)
+docker compose exec app php artisan db:seed
+```
+
+The application will be available at `http://localhost:18000`.
+
+### Environment Variables
+
+Override any of these in your `.env` file before running `docker compose up`:
+
+| Variable | Default | Description |
+|---|---|---|
+| `APP_KEY` | *(auto-generated)* | Laravel application key |
+| `APP_PORT` | `18000` | Host port mapped to nginx |
+| `DB_DATABASE` | `starboard` | MySQL database name |
+| `DB_USERNAME` | `starboard` | MySQL user |
+| `DB_PASSWORD` | `secret` | MySQL user password |
+| `DB_ROOT_PASSWORD` | `rootsecret` | MySQL root password |
+
+**Note**: MySQL is exposed on port `13306` externally and `3306` internally within Docker.
+
+### Common Commands
+
+```bash
+# Start services
+docker compose up -d
+
+# Stop services
+docker compose down
+
+# Rebuild after code changes
+docker compose up -d --build
+
+# Stream application logs
+docker compose logs -f app
+
+# Run Artisan commands
+docker compose exec app php artisan <command>
+
+# Open a shell inside the app container
+docker compose exec app bash
+
+# Run database migrations
+docker compose exec app php artisan migrate
+
+# Destroy containers and volumes (resets the database)
+docker compose down -v
+```
+
+### Docker File Structure
+
+```
+docker/
+├── entrypoint.sh       # Container startup script (migrations, cache)
+├── nginx/
+│   └── default.conf    # Nginx virtual host configuration
+└── php/
+    └── php.ini         # PHP production settings
+Dockerfile              # Multi-stage build (node → composer → app)
+docker-compose.yml      # Service definitions
+.dockerignore           # Files excluded from the build context
+```
+
 ## Configuration
 
 ### Environment Variables
 
-Key environment variables to configure in `.env`:
-
-```
-APP_NAME=Starboard
-APP_URL=http://localhost:8000
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=starboard
-DB_USERNAME=root
-DB_PASSWORD=
-```
+Key environment variables to configure in `.env`.
 
 ## Usage
 
@@ -103,4 +181,4 @@ composer run test
 
 ## License
 
-This project is licensed as proprietary, see the [LICENSE](LICENSE.md) file for details.
+This project is licensed under the MIT License, see the [LICENSE](LICENSE.md) file for details.

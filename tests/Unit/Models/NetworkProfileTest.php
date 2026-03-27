@@ -6,7 +6,11 @@ namespace Tests\Unit\Models;
 
 use App\Models\NetworkProfile;
 use App\Models\NetworkSource;
+use App\Models\NetworkTag;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class NetworkProfileTest extends TestCase
@@ -24,6 +28,15 @@ class NetworkProfileTest extends TestCase
         $this->assertFalse($networkProfile->is_favorite);
     }
 
+    public function test_last_visit_at_is_cast_to_datetime(): void
+    {
+        $networkProfile = NetworkProfile::factory()->create([
+            'last_visit_at' => '2025-06-15 10:30:00',
+        ]);
+
+        $this->assertInstanceOf(Carbon::class, $networkProfile->last_visit_at);
+    }
+
     public function test_belongs_to_user(): void
     {
         $user = User::factory()->create();
@@ -31,8 +44,9 @@ class NetworkProfileTest extends TestCase
             'user_id' => $user->id,
         ]);
 
+        $this->assertInstanceOf(BelongsTo::class, $networkProfile->user());
         $this->assertInstanceOf(User::class, $networkProfile->user);
-        $this->assertEquals($user->id, $networkProfile->user->id);
+        $this->assertSame($user->id, $networkProfile->user->id);
     }
 
     public function test_belongs_to_network_source(): void
@@ -42,8 +56,21 @@ class NetworkProfileTest extends TestCase
             'network_source_id' => $networkSource->id,
         ]);
 
+        $this->assertInstanceOf(BelongsTo::class, $networkProfile->networkSource());
         $this->assertInstanceOf(NetworkSource::class, $networkProfile->networkSource);
-        $this->assertEquals($networkSource->id, $networkProfile->networkSource->id);
+        $this->assertSame($networkSource->id, $networkProfile->networkSource->id);
+    }
+
+    public function test_belongs_to_many_network_tags(): void
+    {
+        $user = User::factory()->create();
+        $networkProfile = NetworkProfile::factory()->create(['user_id' => $user->id]);
+        $tags = NetworkTag::factory()->count(2)->create(['user_id' => $user->id]);
+
+        $networkProfile->networkTags()->attach($tags->pluck('id'));
+
+        $this->assertInstanceOf(BelongsToMany::class, $networkProfile->networkTags());
+        $this->assertCount(2, $networkProfile->fresh()->networkTags);
     }
 
     public function test_user_scope_filters_records_by_authenticated_user(): void
@@ -56,9 +83,10 @@ class NetworkProfileTest extends TestCase
 
         $this->actingAs($user1);
 
-        // Assert that only User 1's profile is visible
-        $this->assertTrue(NetworkProfile::query()->count() > 0);
-        $this->assertEquals($user1->id, NetworkProfile::query()->first()->user_id);
+        $profiles = NetworkProfile::query()->get();
+
+        $this->assertGreaterThan(0, $profiles->count());
+        $profiles->each(fn (NetworkProfile $profile) => $this->assertSame($user1->id, $profile->user_id));
     }
 
     public function test_date_shortener_formats_dates_correctly(): void
@@ -126,6 +154,18 @@ class NetworkProfileTest extends TestCase
     {
         $profile = new NetworkProfile;
         $profile->username = 'someone';
+
+        $this->assertSame('', $profile->profileUrl());
+    }
+
+    public function test_profile_url_returns_empty_when_source_url_is_null(): void
+    {
+        $source = new NetworkSource;
+        $source->url = null;
+
+        $profile = new NetworkProfile;
+        $profile->username = 'someone';
+        $profile->setRelation('networkSource', $source);
 
         $this->assertSame('', $profile->profileUrl());
     }

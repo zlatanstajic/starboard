@@ -1,0 +1,68 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - drafts
+      - dev
+      - master
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo, pdo_sqlite, sqlite3
+          coverage: pcov
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y aspell aspell-en
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Setup environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          cp .env .env.testing
+
+      - name: Create test database and run migrations
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/database.sqlite
+        run: |
+          touch database/database.sqlite
+          php artisan migrate --force
+
+      - name: Run tests
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/database.sqlite
+        run: composer test
+
+      - name: Test Results
+        if: always()
+        run: echo "Tests completed"

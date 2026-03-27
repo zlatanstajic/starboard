@@ -2,7 +2,7 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "zlatanstajic/starboard",
     "type": "project",
-    "description": "All your favorite creators, one central view.",
+    "description": "A Laravel application for tracking and managing your favorite creators across multiple social media networks.",
     "authors": [
         {
             "name": "zlatanstajic",
@@ -100,7 +100,10 @@
         "test:pint": "./vendor/bin/pint --parallel --test",
         "test:phpstan": "./vendor/bin/phpstan analyse",
         "test:rector": "./vendor/bin/rector process --dry-run",
-        "test:phpunit": "php artisan test --coverage --min=95",
+        "test:phpunit": [
+            "@php -r \"file_exists('.env.testing') || throw new RuntimeException('.env.testing file is missing');\"",
+            "php artisan test --coverage --min=95"
+        ],
         "fix": [
             "@fix:rector",
             "@fix:pint"
