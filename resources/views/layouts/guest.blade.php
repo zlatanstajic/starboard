@@ -7,8 +7,13 @@
 
         <title>{{ config('app.name', 'Starboard') }}</title>
 
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="Starboard">
+        <link rel="apple-touch-icon" href="{{ asset('logo.png') }}">
         <link rel="icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
         <link rel="shortcut icon" href="{{ asset('logo.png') }}" type="image/x-icon">
+        <meta name="theme-color" content="#0f172a">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
@@ -17,7 +22,7 @@
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans text-gray-900 antialiased bg-gray-100 dark:bg-gray-900 flex flex-col min-h-dvh">
+    <body class="font-sans text-gray-900 antialiased bg-gray-900 flex flex-col min-h-dvh">
 
         <x-navigation />
 
