@@ -1261,6 +1261,95 @@ class NetworkProfileRepositoryTest extends TestCase
         ]);
     }
 
+    public function test_get_all_filters_by_comma_separated_tag_ids_string(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $networkSource = NetworkSource::factory()->create(['user_id' => $user->id]);
+
+        $tag1 = \App\Models\NetworkTag::factory()->create(['name' => 'csv_tag1_'.uniqid()]);
+        $tag2 = \App\Models\NetworkTag::factory()->create(['name' => 'csv_tag2_'.uniqid()]);
+
+        $profileBoth = NetworkProfile::factory()->create([
+            'username' => 'csv_both_'.uniqid(),
+            'user_id' => $user->id,
+            'network_source_id' => $networkSource->id,
+        ]);
+        $profileBoth->networkTags()->attach([$tag1->id, $tag2->id]);
+
+        $profileOne = NetworkProfile::factory()->create([
+            'username' => 'csv_one_'.uniqid(),
+            'user_id' => $user->id,
+            'network_source_id' => $networkSource->id,
+        ]);
+        $profileOne->networkTags()->attach($tag1->id);
+
+        $profileNone = NetworkProfile::factory()->create([
+            'username' => 'csv_none_'.uniqid(),
+            'user_id' => $user->id,
+            'network_source_id' => $networkSource->id,
+        ]);
+
+        // Filter by a single comma-separated string of tag IDs (exercises explode + trim)
+        $request = Request::create('/network-profiles', 'GET', [
+            'filter' => ['tags' => $tag1->id.','.$tag2->id],
+        ]);
+        $this->app->instance('request', $request);
+
+        $results = $this->repository->getAll();
+        $usernames = $results->pluck('username')->toArray();
+
+        // Strict AND: only the profile with BOTH tags should match.
+        $this->assertContains($profileBoth->username, $usernames);
+        $this->assertNotContains($profileOne->username, $usernames);
+        $this->assertNotContains($profileNone->username, $usernames);
+    }
+
+    public function test_get_all_excludes_profiles_by_comma_separated_tag_ids_string(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $networkSource = NetworkSource::factory()->create(['user_id' => $user->id]);
+
+        $tag1 = \App\Models\NetworkTag::factory()->create(['name' => 'csv_excl1_'.uniqid()]);
+        $tag2 = \App\Models\NetworkTag::factory()->create(['name' => 'csv_excl2_'.uniqid()]);
+        $tag3 = \App\Models\NetworkTag::factory()->create(['name' => 'csv_excl3_'.uniqid()]);
+
+        $profileT1 = NetworkProfile::factory()->create([
+            'username' => 'csv_excl_t1_'.uniqid(),
+            'user_id' => $user->id,
+            'network_source_id' => $networkSource->id,
+        ]);
+        $profileT1->networkTags()->attach($tag1->id);
+
+        $profileT2 = NetworkProfile::factory()->create([
+            'username' => 'csv_excl_t2_'.uniqid(),
+            'user_id' => $user->id,
+            'network_source_id' => $networkSource->id,
+        ]);
+        $profileT2->networkTags()->attach($tag2->id);
+
+        $profileSafe = NetworkProfile::factory()->create([
+            'username' => 'csv_excl_safe_'.uniqid(),
+            'user_id' => $user->id,
+            'network_source_id' => $networkSource->id,
+        ]);
+        $profileSafe->networkTags()->attach($tag3->id);
+
+        // Exclude by a single comma-separated string of tag IDs (exercises explode + trim)
+        $request = Request::create('/network-profiles', 'GET', [
+            'filter' => ['exclude_tags' => $tag1->id.','.$tag2->id],
+        ]);
+        $this->app->instance('request', $request);
+
+        $results = $this->repository->getAll();
+        $usernames = $results->pluck('username')->toArray();
+
+        $this->assertNotContains($profileT1->username, $usernames);
+        $this->assertNotContains($profileT2->username, $usernames);
+        $this->assertContains($profileSafe->username, $usernames);
+    }
+
     /**
      * Helper to inject query params into the global request
      */

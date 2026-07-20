@@ -229,11 +229,7 @@ class NetworkProfileRepository extends Repository
             return;
         }
 
-        $ids = is_array($value)
-            ? $value
-            : (str_contains($value, ',') ? explode(',', $value) : [$value]);
-
-        $ids = array_values(array_filter(array_map(fn ($v) => mb_trim((string) $v), (array) $ids), fn ($v) => $v !== ''));
+        $ids = $this->normalizeTagIds($value);
         if (empty($ids)) {
             return;
         }
@@ -271,12 +267,7 @@ class NetworkProfileRepository extends Repository
             return;
         }
 
-        $ids = is_array($value)
-            ? $value
-            : (str_contains($value, ',') ? explode(',', $value) : [$value]);
-
-        // Normalize: trim and remove empty values
-        $ids = array_values(array_filter(array_map(fn ($v) => mb_trim((string) $v), (array) $ids), fn ($v) => $v !== ''));
+        $ids = $this->normalizeTagIds($value);
         if (empty($ids)) {
             return;
         }
@@ -289,5 +280,25 @@ class NetworkProfileRepository extends Repository
             $q->withoutGlobalScopes()
                 ->whereIn('network_tags.id', $ids);
         }, '=', count($ids));
+    }
+
+    /**
+     * Normalize a tags filter value into a list of non-empty trimmed ID strings.
+     *
+     * Accepts either an array of values or a string (optionally comma-separated).
+     * Tag IDs are ASCII numeric (network_tags.id), so trim() is sufficient.
+     *
+     * @return list<string>
+     */
+    private function normalizeTagIds(string|array $value): array
+    {
+        $ids = is_array($value)
+            ? $value
+            : (str_contains($value, ',') ? explode(',', $value) : [$value]);
+
+        return array_values(array_filter(
+            array_map(fn ($v): string => trim((string) $v), $ids),
+            fn ($v): bool => $v !== ''
+        ));
     }
 }

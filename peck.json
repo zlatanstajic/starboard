@@ -17,6 +17,7 @@
             "lookups",
             "nginx",
             "entrypoint",
+            "ds",
             "rethrows"
         ],
         "paths": []
