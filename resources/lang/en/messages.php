@@ -36,6 +36,7 @@ return [
         'search' => 'Search',
         'clear' => 'Clear',
         'refresh' => 'Refresh',
+        'fetch' => 'Fetch',
         'favorite' => 'Favorite',
         'favorite_short' => 'Fav',
         'public' => 'Public',
@@ -140,6 +141,14 @@ return [
         'duplication' => 'Network profile \':username\' already exists.',
         'deletion_failed' => 'Network profile deletion failed due to an internal error.',
         'no_profiles_found' => 'No network profiles found matching your criteria.',
+        'fetch' => [
+            'started' => 'Fetch started',
+            'running_background' => 'Checking your YouTube sources in the background. This can take a moment.',
+            'nothing_to_fetch' => 'No YouTube video sources to check.',
+            'complete' => 'Fetch complete',
+            'found_new_items' => ':count new item(s) found across your YouTube sources.',
+            'in_progress' => 'Fetching…',
+        ],
         'filter' => [
             'all_network_sources' => 'All Network Sources',
             'all_visits' => 'All Visits',
@@ -163,6 +172,9 @@ return [
             'all_tags' => 'All Tags',
             'with_tags' => 'With Tags',
             'without_tags' => 'Without Tags',
+            'all_new_items' => 'All New Items',
+            'with_new_items' => 'With New Items',
+            'without_new_items' => 'Without New Items',
         ],
         'sort' => [
             'username' => 'Username (A-Z)',
@@ -185,6 +197,7 @@ return [
         'create_network_profile' => 'Create Network Profile',
         'edit_network_profile' => 'Edit Network Profile',
         'visits_title' => 'Number of Visits / Last Visit At',
+        'new_items_title' => 'New items since your last visit',
     ],
     'network_source' => [
         'page_name' => 'Sources',

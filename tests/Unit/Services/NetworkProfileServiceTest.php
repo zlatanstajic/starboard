@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Services;
 
+use App\Jobs\FetchYouTubeNewItemsJob;
 use App\Models\NetworkProfile;
 use App\Repositories\NetworkProfileRepository;
 use App\Services\NetworkProfileService;
+use Illuminate\Bus\PendingBatch;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\LazyCollection;
 use Mockery\MockInterface;
 use Override;
 use Tests\TestCase;
@@ -124,5 +128,53 @@ class NetworkProfileServiceTest extends TestCase
 
         $this->assertSame(6, $result->number_of_visits);
         $this->assertSame(now()->toDateTimeString(), $result->last_visit_at->toDateTimeString());
+    }
+
+    public function test_fetch_new_items_dispatches_a_batch_of_jobs(): void
+    {
+        Bus::fake();
+
+        $profiles = LazyCollection::make([
+            new NetworkProfile,
+            new NetworkProfile,
+        ]);
+
+        $this->repository
+            ->shouldReceive('getYouTubeVideoProfiles')
+            ->once()
+            ->andReturn($profiles);
+
+        $batch = $this->service->fetchNewItems();
+
+        $this->assertNotNull($batch);
+        Bus::assertBatched(fn (PendingBatch $pending): bool => $pending->name === 'fetch-new-items'
+            && $pending->jobs->count() === 2
+            && $pending->jobs->every(fn ($job): bool => $job instanceof FetchYouTubeNewItemsJob));
+    }
+
+    public function test_fetch_new_items_returns_null_when_no_youtube_profiles(): void
+    {
+        Bus::fake();
+
+        $this->repository
+            ->shouldReceive('getYouTubeVideoProfiles')
+            ->once()
+            ->andReturn(LazyCollection::make([]));
+
+        $this->assertNull($this->service->fetchNewItems());
+        Bus::assertNothingBatched();
+    }
+
+    public function test_new_items_total_sums_new_items_across_profiles(): void
+    {
+        $this->repository
+            ->shouldReceive('getYouTubeVideoProfiles')
+            ->once()
+            ->andReturn(LazyCollection::make([
+                new NetworkProfile(['new_items' => 3]),
+                new NetworkProfile(['new_items' => 4]),
+            ]));
+
+        $this->assertSame(7, $this->service->newItemsTotal());
     }
 }

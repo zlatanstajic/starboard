@@ -18,7 +18,10 @@
             "nginx",
             "entrypoint",
             "ds",
-            "rethrows"
+            "rethrows",
+            "ssrf",
+            "renderer",
+            "livestream"
         ],
         "paths": []
     }

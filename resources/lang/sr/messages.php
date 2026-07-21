@@ -36,6 +36,7 @@ return [
         'search' => 'Pretraga',
         'clear' => 'Očisti',
         'refresh' => 'Osveži',
+        'fetch' => 'Preuzmi',
         'favorite' => 'Omiljeno',
         'favorite_short' => 'Omiljeno',
         'public' => 'Javno',
@@ -140,6 +141,14 @@ return [
         'duplication' => 'Mrežni profil \':username\' već postoji.',
         'deletion_failed' => 'Brisanje mrežnog profila nije uspelo zbog interne greške.',
         'no_profiles_found' => 'Nema mrežnih profila koji odgovaraju vašim kriterijumima.',
+        'fetch' => [
+            'started' => 'Preuzimanje započeto',
+            'running_background' => 'Proveravamo vaše YouTube izvore u pozadini. Ovo može potrajati.',
+            'nothing_to_fetch' => 'Nema YouTube video izvora za proveru.',
+            'complete' => 'Preuzimanje završeno',
+            'found_new_items' => 'Pronađeno novih stavki: :count na vašim YouTube izvorima.',
+            'in_progress' => 'Preuzimanje…',
+        ],
         'filter' => [
             'all_network_sources' => 'Svi izvori',
             'all_visits' => 'Sve posete',
@@ -163,6 +172,9 @@ return [
             'all_tags' => 'Svi tagovi',
             'with_tags' => 'Sa tagovima',
             'without_tags' => 'Bez tagova',
+            'all_new_items' => 'Sve nove stavke',
+            'with_new_items' => 'Sa novim stavkama',
+            'without_new_items' => 'Bez novih stavki',
         ],
         'sort' => [
             'username' => 'Korisničko ime (A-Z)',
@@ -185,6 +197,7 @@ return [
         'create_network_profile' => 'Kreiraj mrežni profil',
         'edit_network_profile' => 'Izmeni mrežni profil',
         'visits_title' => 'Broj poseta / Poslednja poseta',
+        'new_items_title' => 'Nove stavke od vaše poslednje posete',
     ],
     'network_source' => [
         'page_name' => 'Izvori',

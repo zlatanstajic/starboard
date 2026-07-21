@@ -14,7 +14,10 @@ use App\Services\NetworkSourceService;
 use App\Services\NetworkTagService;
 use Exception;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Bus;
+use RealRashid\SweetAlert\Facades\Alert;
 
 class NetworkProfileController extends Controller
 {
@@ -115,5 +118,77 @@ class NetworkProfileController extends Controller
         }
 
         return $this->handleRedirect();
+    }
+
+    /**
+     * Dispatches a batch of background jobs to fetch new items for YouTube
+     * profiles and records the batch id so the dashboard can poll its progress.
+     */
+    public function fetch(): RedirectResponse
+    {
+        try {
+            $batch = $this->networkProfileService->fetchNewItems();
+
+            if ($batch === null) {
+                Alert::info(
+                    __('messages.network_profile.fetch.started'),
+                    __('messages.network_profile.fetch.nothing_to_fetch')
+                );
+
+                return $this->handleRedirect();
+            }
+
+            session(['fetch_batch_id' => $batch->id]);
+
+            Alert::info(
+                __('messages.network_profile.fetch.started'),
+                __('messages.network_profile.fetch.running_background')
+            );
+        } catch (Exception $e) {
+            $this->handleException($e);
+        }
+
+        return $this->handleRedirect();
+    }
+
+    /**
+     * Reports the progress of the current fetch batch for polling. When the
+     * batch has finished it flashes a completion alert (shown on the next page
+     * load) and clears the tracked batch id.
+     */
+    public function fetchStatus(): JsonResponse
+    {
+        $batchId = session('fetch_batch_id');
+
+        if (! is_string($batchId) || $batchId === '') {
+            return response()->json(['active' => false]);
+        }
+
+        $batch = Bus::findBatch($batchId);
+
+        if ($batch === null) {
+            session()->forget('fetch_batch_id');
+
+            return response()->json(['active' => false]);
+        }
+
+        if ($batch->finished()) {
+            session()->forget('fetch_batch_id');
+
+            Alert::success(
+                __('messages.network_profile.fetch.complete'),
+                __('messages.network_profile.fetch.found_new_items', [
+                    'count' => $this->networkProfileService->newItemsTotal(),
+                ])
+            );
+        }
+
+        return response()->json([
+            'active' => true,
+            'finished' => $batch->finished(),
+            'total' => $batch->totalJobs,
+            'processed' => $batch->processedJobs(),
+            'progress' => $batch->progress(),
+        ]);
     }
 }

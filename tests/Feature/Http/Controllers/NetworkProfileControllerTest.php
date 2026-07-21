@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\NetworkProfileService;
 use App\Services\NetworkSourceService;
 use Exception;
+use Illuminate\Bus\Batch;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Mockery;
 use Override;
@@ -188,6 +189,85 @@ class NetworkProfileControllerTest extends TestCase
 
         $response = $this->actingAs($user)
             ->post(route('network-profiles.recordVisit', ['networkProfile' => $networkProfile->id]));
+
+        $this->assertTrue($response->isRedirect());
+        $this->assertEquals(route('dashboard'), $response->headers->get('Location'));
+    }
+
+    public function test_fetch_dispatches_batch_and_stores_batch_id(): void
+    {
+        $user = User::factory()->create();
+
+        $batch = Mockery::mock(Batch::class);
+        $batch->id = 'batch-abc-123';
+
+        $service = Mockery::mock(NetworkProfileService::class);
+        $service->shouldReceive('fetchNewItems')->once()->andReturn($batch);
+
+        $this->app->instance(NetworkProfileService::class, $service);
+
+        $response = $this->actingAs($user)
+            ->post(route('network-profiles.fetch'));
+
+        $response->assertRedirect(route('dashboard'));
+        $response->assertSessionHas('fetch_batch_id', 'batch-abc-123');
+    }
+
+    public function test_fetch_without_youtube_profiles_redirects_without_batch_id(): void
+    {
+        $user = User::factory()->create();
+
+        $service = Mockery::mock(NetworkProfileService::class);
+        $service->shouldReceive('fetchNewItems')->once()->andReturnNull();
+
+        $this->app->instance(NetworkProfileService::class, $service);
+
+        $response = $this->actingAs($user)
+            ->post(route('network-profiles.fetch'));
+
+        $response->assertRedirect(route('dashboard'));
+        $response->assertSessionMissing('fetch_batch_id');
+    }
+
+    public function test_fetch_status_reports_inactive_when_no_batch_tracked(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->getJson(route('network-profiles.fetch.status'));
+
+        $response->assertOk();
+        $response->assertExactJson(['active' => false]);
+    }
+
+    public function test_fetch_status_clears_unknown_batch_id(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->withSession(['fetch_batch_id' => 'missing-batch'])
+            ->getJson(route('network-profiles.fetch.status'));
+
+        $response->assertOk();
+        $response->assertExactJson(['active' => false]);
+        $response->assertSessionMissing('fetch_batch_id');
+    }
+
+    public function test_fetch_handles_exception_and_shows_alert(): void
+    {
+        $user = User::factory()->create();
+
+        $service = Mockery::mock(NetworkProfileService::class);
+        $service->shouldReceive('fetchNewItems')->once()->andThrow(new Exception('boom'));
+
+        $this->app->instance(NetworkProfileService::class, $service);
+
+        Alert::shouldReceive('error')
+            ->once()
+            ->with(__('messages.default.failed'), 'boom');
+
+        $response = $this->actingAs($user)
+            ->post(route('network-profiles.fetch'));
 
         $this->assertTrue($response->isRedirect());
         $this->assertEquals(route('dashboard'), $response->headers->get('Location'));

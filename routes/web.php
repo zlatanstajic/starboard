@@ -50,6 +50,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         ->controller(NetworkProfileController::class)
         ->group(function (): void {
             Route::post('/', 'store')->name('store');
+            Route::post('fetch', 'fetch')->middleware('throttle:6,1')->name('fetch');
+            Route::get('fetch/status', 'fetchStatus')->name('fetch.status');
             Route::put('{networkProfile}', 'update')->name('update');
             Route::delete('{networkProfile}', 'destroy')->name('destroy');
             Route::post('{networkProfile}/record-visit', 'recordVisit')->name('recordVisit');

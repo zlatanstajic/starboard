@@ -28,6 +28,53 @@ class NetworkProfileTest extends TestCase
         $this->assertFalse($networkProfile->is_favorite);
     }
 
+    public function test_new_items_is_cast_to_integer(): void
+    {
+        $networkProfile = NetworkProfile::factory()->create([
+            'new_items' => '5',
+        ]);
+
+        $this->assertIsInt($networkProfile->new_items);
+        $this->assertSame(5, $networkProfile->new_items);
+    }
+
+    public function test_scope_by_new_items_returns_only_profiles_with_new_items(): void
+    {
+        $withNew = NetworkProfile::factory()->create(['new_items' => 3]);
+        NetworkProfile::factory()->create(['new_items' => 0]);
+
+        $results = NetworkProfile::byNewItems('1')->get();
+
+        $this->assertGreaterThanOrEqual(1, $results->count());
+        foreach ($results as $profile) {
+            $this->assertGreaterThan(0, $profile->new_items);
+        }
+        $this->assertContains($withNew->id, $results->pluck('id')->toArray());
+    }
+
+    public function test_scope_by_new_items_returns_only_profiles_without_new_items(): void
+    {
+        $withoutNew = NetworkProfile::factory()->create(['new_items' => 0]);
+        NetworkProfile::factory()->create(['new_items' => 2]);
+
+        $results = NetworkProfile::byNewItems('0')->get();
+
+        $this->assertGreaterThanOrEqual(1, $results->count());
+        foreach ($results as $profile) {
+            $this->assertSame(0, $profile->new_items);
+        }
+        $this->assertContains($withoutNew->id, $results->pluck('id')->toArray());
+    }
+
+    public function test_scope_by_new_items_passes_through_on_invalid_value(): void
+    {
+        NetworkProfile::factory()->count(3)->create();
+
+        $results = NetworkProfile::byNewItems('invalid')->get();
+
+        $this->assertGreaterThanOrEqual(3, $results->count());
+    }
+
     public function test_last_visit_at_is_cast_to_datetime(): void
     {
         $networkProfile = NetworkProfile::factory()->create([

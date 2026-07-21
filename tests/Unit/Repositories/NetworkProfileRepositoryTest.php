@@ -149,6 +149,106 @@ class NetworkProfileRepositoryTest extends TestCase
         ]);
     }
 
+    public function test_increment_resets_new_items_to_zero(): void
+    {
+        $profile = NetworkProfile::factory()->create([
+            'number_of_visits' => 2,
+            'new_items' => 9,
+            'last_visit_at' => now()->subDays(3),
+        ]);
+
+        $result = $this->repository->increment($profile);
+
+        $this->assertSame(0, $result->new_items);
+        $this->assertDatabaseHas(DatabaseTableNamesEnum::network_profiles->value, [
+            'id' => $profile->id,
+            'new_items' => 0,
+        ]);
+    }
+
+    public function test_get_all_filters_by_new_items(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $networkSource = NetworkSource::factory()->create(['user_id' => $user->id]);
+
+        $withNew = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $networkSource->id,
+            'username' => 'repo_with_new_'.$this->timestamp,
+            'new_items' => 5,
+            // Oldest last_visit_at so it sorts first on page 1 (defaultSort is
+            // last_visit_at ASC) regardless of leftover data on the persistent DB.
+            'last_visit_at' => now()->subYears(20),
+        ]);
+        $withoutNew = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $networkSource->id,
+            'username' => 'repo_without_new_'.$this->timestamp,
+            'new_items' => 0,
+            // Equally old so it would land on page 1 if the filter were a no-op,
+            // making the exclusion assertion meaningful.
+            'last_visit_at' => now()->subYears(20),
+        ]);
+
+        $request = Request::create('/network-profiles', 'GET', [
+            'filter' => ['new_items' => '1'],
+        ]);
+        $this->app->instance('request', $request);
+
+        $results = $this->repository->getAll();
+        $usernames = $results->pluck('username')->toArray();
+
+        $this->assertContains($withNew->username, $usernames);
+        $this->assertNotContains($withoutNew->username, $usernames);
+        foreach ($results as $profile) {
+            $this->assertGreaterThan(0, $profile->new_items);
+        }
+    }
+
+    public function test_get_youtube_video_profiles_returns_only_youtube_sources(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $youtube = NetworkSource::factory()->create([
+            'user_id' => $user->id,
+            'url' => 'https://youtube.com/@{username}/videos',
+        ]);
+        $youtubeWww = NetworkSource::factory()->create([
+            'user_id' => $user->id,
+            'url' => 'https://www.youtube.com/@{username}/videos',
+        ]);
+        $instagram = NetworkSource::factory()->create([
+            'user_id' => $user->id,
+            'url' => 'https://instagram.com/{username}',
+        ]);
+
+        $youtubeProfile = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $youtube->id,
+            'username' => 'yt_profile_'.$this->timestamp,
+        ]);
+        $youtubeWwwProfile = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $youtubeWww->id,
+            'username' => 'yt_www_profile_'.$this->timestamp,
+        ]);
+        $instagramProfile = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $instagram->id,
+            'username' => 'ig_profile_'.$this->timestamp,
+        ]);
+
+        $usernames = $this->repository->getYouTubeVideoProfiles()
+            ->pluck('username')
+            ->toArray();
+
+        $this->assertContains($youtubeProfile->username, $usernames);
+        $this->assertContains($youtubeWwwProfile->username, $usernames);
+        $this->assertNotContains($instagramProfile->username, $usernames);
+    }
+
     public function test_scope_by_visits_filters_correct_range_one_to_five(): void
     {
         NetworkProfile::factory()->create(['number_of_visits' => 3]);

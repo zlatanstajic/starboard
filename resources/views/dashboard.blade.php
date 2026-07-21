@@ -100,6 +100,14 @@
                         </div>
 
                         <div class="w-full md:w-1/6">
+                            <select onchange="window.location.href=this.value" aria-label="{{ __('messages.network_profile.filter.all_new_items') }}" class="bg-gray-50 border border-gray-300 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['new_items' => null])]) }}" {{ !request('filter.new_items') ? 'selected' : '' }}>{{ __('messages.network_profile.filter.all_new_items') }}</option>
+                                <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['new_items' => '1'])]) }}" {{ request('filter.new_items') === '1' ? 'selected' : '' }}>{{ __('messages.network_profile.filter.with_new_items') }}</option>
+                                <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['new_items' => '0'])]) }}" {{ request('filter.new_items') === '0' ? 'selected' : '' }}>{{ __('messages.network_profile.filter.without_new_items') }}</option>
+                            </select>
+                        </div>
+
+                        <div class="w-full md:w-1/6">
                             <select onchange="window.location.href=this.value" aria-label="{{ __('messages.network_profile.filter.all_tags') }}" class="bg-gray-50 border border-gray-300 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                 <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['tags' => null])]) }}" {{ !request('filter.tags') ? 'selected' : '' }}>{{ __('messages.network_profile.filter.all_tags') }}</option>
                                 <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['tags' => 'any'])]) }}" {{ request('filter.tags') === 'any' ? 'selected' : '' }}>{{ __('messages.network_profile.filter.with_tags') }}</option>
@@ -285,6 +293,8 @@
                                                     {{ Str::limit($profile->username, 25, '...') }}
                                                 @endif
                                             </a>
+                                            <span class="new-items-badge ml-2 bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-full dark:bg-red-900 dark:text-red-300 {{ $profile->new_items > 0 ? '' : 'hidden' }}"
+                                                title="{{ __('messages.network_profile.new_items_title') }}">{{ $profile->new_items }}</span>
                                         </td>
 
                                         @if($profile->networkTags->isNotEmpty())
@@ -528,6 +538,13 @@ function handleVisitIncrement(event) {
             const row = link.closest('tr');
             const visitCell = row.querySelector('.visit-count');
             const visitAtCells = row.querySelectorAll('.visit-at');
+            const newItemsBadge = row.querySelector('.new-items-badge');
+
+            // Reset new-items badge to zero (mirrors the server-side reset on visit)
+            if (newItemsBadge) {
+                newItemsBadge.innerText = '0';
+                newItemsBadge.classList.add('hidden');
+            }
 
             // Increment visits counter
             if (visitCell) {

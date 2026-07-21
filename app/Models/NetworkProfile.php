@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Scopes\UserScope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +19,7 @@ use Override;
  * @property int $id
  * @property string $username
  * @property int $number_of_visits
+ * @property int $new_items
  * @property ?Carbon $created_at
  * @property ?Carbon $updated_at
  * @property ?Carbon $last_visit_at
@@ -30,7 +32,7 @@ class NetworkProfile extends Model
     /**
      * Allowed includes to use as relationships.
      */
-    public const array  ALLOWED_INCLUDES = [
+    public const array ALLOWED_INCLUDES = [
         'user',
         'networkSource',
         'networkTags',
@@ -51,6 +53,7 @@ class NetworkProfile extends Model
     public const array ALLOWED_SORTS = [
         'username',
         'number_of_visits',
+        'new_items',
         'last_visit_at',
         'created_at',
         'updated_at',
@@ -68,6 +71,7 @@ class NetworkProfile extends Model
         'is_public',
         'is_favorite',
         'number_of_visits',
+        'new_items',
         'last_visit_at',
     ];
 
@@ -134,6 +138,7 @@ class NetworkProfile extends Model
         return [
             'is_public' => 'boolean',
             'is_favorite' => 'boolean',
+            'new_items' => 'integer',
             'last_visit_at' => 'datetime',
         ];
     }
@@ -151,6 +156,19 @@ class NetworkProfile extends Model
             '21-50' => $query->whereBetween('number_of_visits', [21, 50]),
             '51-100' => $query->whereBetween('number_of_visits', [51, 100]),
             '100+' => $query->where('number_of_visits', '>', 100),
+            default => $query,
+        };
+    }
+
+    /**
+     * Filter which scopes query by new_items field.
+     */
+    #[\Illuminate\Database\Eloquent\Attributes\Scope]
+    protected function byNewItems(Builder $query, ?string $value): Builder
+    {
+        return match ($value) {
+            '1' => $query->where('new_items', '>', 0),
+            '0' => $query->where('new_items', '=', 0),
             default => $query,
         };
     }

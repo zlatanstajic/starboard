@@ -9,6 +9,7 @@ use App\Models\NetworkProfile;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\LazyCollection;
 use Spatie\QueryBuilder\AllowedFilter;
 
 class NetworkProfileRepository extends Repository
@@ -29,6 +30,7 @@ class NetworkProfileRepository extends Repository
             filters: [
                 AllowedFilter::scope('visits', 'byVisits'),
                 AllowedFilter::scope('last_visit', 'byLastVisit'),
+                AllowedFilter::scope('new_items', 'byNewItems'),
                 AllowedFilter::callback('has_description', $this->filterHasDescription(...)),
                 AllowedFilter::callback('search', $this->filterSearch(...)),
                 AllowedFilter::callback('tags', $this->filterTags(...)),
@@ -88,6 +90,26 @@ class NetworkProfileRepository extends Repository
     }
 
     /**
+     * Gets network profiles whose network source is a
+     * YouTube videos page, streamed lazily via a cursor.
+     *
+     * @return LazyCollection<int, NetworkProfile>
+     */
+    public function getYouTubeVideoProfiles(): LazyCollection
+    {
+        return NetworkProfile::query()
+            ->whereHas('networkSource', function (Builder $query): void {
+                $query->withoutGlobalScopes()
+                    ->where(function (Builder $q): void {
+                        $q->where('url', 'like', 'https://youtube.com/%/videos%')
+                            ->orWhere('url', 'like', 'https://www.youtube.com/%/videos%');
+                    });
+            })
+            ->with('networkSource')
+            ->cursor();
+    }
+
+    /**
      * Increments network profile's number_of_visits
      * and sets last_visit_at to now.
      */
@@ -95,6 +117,7 @@ class NetworkProfileRepository extends Repository
     {
         $networkProfile->increment('number_of_visits', 1, [
             'last_visit_at' => now(),
+            'new_items' => 0,
         ]);
 
         return $networkProfile;
