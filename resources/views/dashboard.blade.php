@@ -13,9 +13,16 @@
             updateUrl: '',
             deleteUrl: '',
             deleteItemName: '',
-            showFilters: false // controls visibility of filter panel
+            showFilters: false, // controls visibility of filter panel
+            columns: { number: true, name: true, tags: true, status: true, favorite: true, visits: true, timestamps: true, actions: true } // DEFAULTS: all columns visible
         }"
-        x-init="createSourceId = localStorage.getItem('last_network_source_id') ?? ''; showFilters = (localStorage.getItem('show_filters') === '1');"
+        x-init="
+            createSourceId = localStorage.getItem('last_network_source_id') ?? '';
+            showFilters = (localStorage.getItem('show_filters') === '1');
+            try { columns = { ...columns, ...JSON.parse(localStorage.getItem('dashboard_columns') || '{}') }; } catch (e) { /* malformed value: keep DEFAULTS */ }
+            columns.name = true;
+            $watch('columns', value => localStorage.setItem('dashboard_columns', JSON.stringify(value)));
+        "
         @open-edit-modal.window="
             editOpen = true;
             username = $event.detail.username;
@@ -141,7 +148,7 @@
 
                         </div>
 
-                        <div class="w-full md:w-1/4">
+                        <div class="w-full md:w-1/2">
                             <select onchange="window.location.href=this.value" aria-label="{{ __('messages.network_profile.filter.all_descriptions') }}" class="bg-gray-50 border border-gray-300 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                 <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['has_description' => null])]) }}" {{ !request('filter.has_description') ? 'selected' : '' }}>{{ __('messages.network_profile.filter.all_descriptions') }}</option>
                                 <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['has_description' => '1'])]) }}" {{ request('filter.has_description') === '1' ? 'selected' : '' }}>{{ __('messages.network_profile.filter.with_description') }}</option>
@@ -262,21 +269,21 @@
                         <table class="min-w-full text-sm text-left text-gray-500 dark:text-gray-400">
                             <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                 <tr>
-                                    <th scope="col" class="px-6 py-3">#</th>
-                                    <th scope="col" class="px-6 py-3">{{ __('messages.default.name') }}</th>
-                                    <th scope="col" class="px-6 py-3 text-center">{{ __('messages.default.tags') }}</th>
-                                    <th scope="col" class="px-6 py-3 text-center">{{ __('messages.default.status') }}</th>
-                                    <th scope="col" class="px-6 py-3 text-center" title="{{ __('messages.default.favorite') }}">{{ __('messages.default.favorite_short') }}</th>
-                                    <th scope="col" class="px-3 py-2 w-20 md:w-24 text-center text-xs" title="{{ __('messages.network_profile.visits_title') }}">{{ __('messages.default.visits') }}</th>
-                                    <th scope="col" class="px-3 py-2 w-28 text-center text-xs" title="{{ __('messages.default.timestamps_title') }}">{{ __('messages.default.timestamps') }}</th>
-                                    <th scope="col" class="px-6 py-3 text-center">{{ __('messages.default.actions') }}</th>
+                                    <th scope="col" class="px-6 py-3" data-col="number" x-show="columns.number">#</th>
+                                    <th scope="col" class="px-6 py-3" data-col="name" x-show="columns.name">{{ __('messages.default.name') }}</th>
+                                    <th scope="col" class="px-6 py-3 text-center" data-col="tags" x-show="columns.tags">{{ __('messages.default.tags') }}</th>
+                                    <th scope="col" class="px-6 py-3 text-center" data-col="status" x-show="columns.status">{{ __('messages.default.status') }}</th>
+                                    <th scope="col" class="px-6 py-3 text-center" title="{{ __('messages.default.favorite') }}" data-col="favorite" x-show="columns.favorite">{{ __('messages.default.favorite_short') }}</th>
+                                    <th scope="col" class="px-3 py-2 w-20 md:w-24 text-center text-xs" title="{{ __('messages.network_profile.visits_title') }}" data-col="visits" x-show="columns.visits">{{ __('messages.default.visits') }}</th>
+                                    <th scope="col" class="px-3 py-2 w-28 text-center text-xs" title="{{ __('messages.default.timestamps_title') }}" data-col="timestamps" x-show="columns.timestamps">{{ __('messages.default.timestamps') }}</th>
+                                    <th scope="col" class="px-6 py-3 text-center" data-col="actions" x-show="columns.actions">{{ __('messages.default.actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($networkProfiles as $profile)
                                     <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
-                                        <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{{ $networkProfiles->firstItem() + $loop->index }}</td>
-                                        <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+                                        <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white" data-col="number" x-show="columns.number">{{ $networkProfiles->firstItem() + $loop->index }}</td>
+                                        <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white" data-col="name" x-show="columns.name">
                                             <div class="flex items-center">
                                                 <x-source-icon :slug="$profile->networkSource?->icon" :title="$profile->networkSource?->name" :fallback="$profile->networkSource !== null" class="w-4 h-4 shrink-0 mr-2" />
                                                 <a href="{{ $profile->profileUrl() }}"
@@ -301,39 +308,45 @@
                                         @if($profile->networkTags->isNotEmpty())
                                             <td
                                                 class="px-6 py-4"
+                                                data-col="tags"
+                                                x-show="columns.tags"
                                                 title="{{ $profile->networkTags->pluck('name')->sort()->implode(', ') }}"
                                             >
                                                 {{ Str::limit($profile->networkTags->pluck('name')->sort()->implode(', '), 25, '...') }}
                                             </td>
                                         @else
-                                            <td class="px-6 py-4" title="/">/</td>
+                                            <td class="px-6 py-4" data-col="tags" x-show="columns.tags" title="/">/</td>
                                         @endif
 
-                                        <td class="px-6 py-4 text-center">
+                                        <td class="px-6 py-4 text-center" data-col="status" x-show="columns.status">
                                             @if($profile->is_public)
                                                 <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">{{ __('messages.default.public') }}</span>
                                             @else
                                                 <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-gray-300">{{ __('messages.default.private') }}</span>
                                             @endif
                                         </td>
-                                        <td class="px-6 py-4 text-center">
+                                        <td class="px-6 py-4 text-center" data-col="favorite" x-show="columns.favorite">
                                             <svg class="w-5 h-5 inline {{ $profile->is_favorite ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600' }}" fill="currentColor" viewBox="0 0 20 20">
                                                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                             </svg>
                                         </td>
                                         <td
                                             class="px-3 py-2 whitespace-nowrap text-xs text-center"
+                                            data-col="visits"
+                                            x-show="columns.visits"
                                             title="{{ $profile->last_visit_at }}"
                                         >
                                             <span class="visit-count">{{ number_format($profile->number_of_visits) }}</span> / <span class="visit-at">{{ $profile->last_visit_short }}</span>
                                         </td>
                                         <td
                                             class="px-6 py-4 whitespace-nowrap text-xs"
+                                            data-col="timestamps"
+                                            x-show="columns.timestamps"
                                             title="{{ $profile->created_at }} / {{ $profile->updated_at }}"
                                         >
                                             {{ $profile->created_at_short }} / {{ $profile->updated_at_short }}
                                         </td>
-                                        <td class="px-6 py-4 text-center">
+                                        <td class="px-6 py-4 text-center" data-col="actions" x-show="columns.actions">
                                             <div class="flex justify-center gap-2">
                                                 <x-edit-button
                                                     event-name="open-edit-profile-modal"

@@ -6,6 +6,7 @@ namespace Tests\Feature\Http\Controllers;
 
 use App\Models\NetworkProfile;
 use App\Models\NetworkSource;
+use App\Models\NetworkTag;
 use App\Models\User;
 use App\Services\NetworkProfileService;
 use App\Services\NetworkSourceService;
@@ -54,6 +55,50 @@ class NetworkProfileControllerTest extends TestCase
         $response->assertViewIs('dashboard');
         $response->assertViewHas('networkSources');
         $response->assertViewHas('networkProfiles');
+    }
+
+    public function test_dashboard_renders_column_visibility_control(): void
+    {
+        $user = User::factory()->create();
+        $source = NetworkSource::factory()->create(['user_id' => $user->id]);
+
+        // A tagged profile exercises the non-empty Tags <td>; an untagged one exercises the empty Tags <td>.
+        $taggedProfile = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $source->id,
+        ]);
+        $tag = NetworkTag::factory()->create(['user_id' => $user->id]);
+        $taggedProfile->networkTags()->attach($tag->id);
+
+        NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $source->id,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('dashboard'));
+
+        $response->assertOk();
+        $response->assertViewIs('dashboard');
+
+        // The Columns control label and the readable "row number" checkbox label render.
+        $response->assertSee(__('messages.default.columns'), false);
+        $response->assertSee(__('messages.default.row_number'), false);
+
+        // The localStorage persistence key is seeded on the root Alpine scope.
+        $response->assertSee('dashboard_columns', false);
+
+        // The Name column is guarded: its checkbox renders disabled and checked (hide-all guard).
+        $response->assertSee('type="checkbox" checked disabled', false);
+
+        // Every column exposes a stable data-col hook on its header and body cells.
+        foreach (['number', 'name', 'tags', 'status', 'favorite', 'visits', 'timestamps', 'actions'] as $key) {
+            $response->assertSee('data-col="'.$key.'"', false);
+        }
+
+        // Every toggleable column (all except the always-on Name) binds a checkbox via x-model.
+        foreach (['number', 'tags', 'status', 'favorite', 'visits', 'timestamps', 'actions'] as $key) {
+            $response->assertSee('x-model="columns.'.$key.'"', false);
+        }
     }
 
     public function test_index_handles_exception_and_redirects(): void

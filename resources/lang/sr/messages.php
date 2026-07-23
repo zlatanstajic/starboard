@@ -56,6 +56,9 @@ return [
         'toggle_filters' => 'Filteri',
         'timestamps' => 'Vremenske oznake',
         'timestamps_title' => 'Kreirano / Ažurirano',
+        'columns' => 'Kolone',
+        'row_number' => 'Redni broj',
+        'columns_help' => 'Prikaži ili sakrij kolone',
         'language' => [
             'english' => 'Engleski',
             'serbian' => 'Srpski',

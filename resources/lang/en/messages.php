@@ -56,6 +56,9 @@ return [
         'toggle_filters' => 'Filters',
         'timestamps' => 'Timestamps',
         'timestamps_title' => 'Created At / Updated At',
+        'columns' => 'Columns',
+        'row_number' => 'No.',
+        'columns_help' => 'Show or hide columns',
         'language' => [
             'english' => 'English',
             'serbian' => 'Srpski',

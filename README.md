@@ -20,6 +20,7 @@ A modern, centralized platform to track and manage your favorite creators and in
 - **Advanced Filtering**: Filter by network source, visit count, last visit date, status, and favorites
 - **Smart Sorting**: Sort by username, visits, last visit date, creation date, and update date
 - **Search Functionality**: Quick search for specific creator usernames
+- **Customizable Columns**: Show or hide dashboard table columns via a multiselect in the filters section; all columns are shown by default and your selection is saved in the browser (localStorage) across visits
 - **Responsive Design**: Fully responsive UI that works on desktop, tablet, and mobile
 - **Dark Mode**: Native dark mode support for comfortable viewing
 - **Real-time Updates**: Visit counts update in real-time without page refresh
