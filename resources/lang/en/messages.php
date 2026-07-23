@@ -143,10 +143,7 @@ return [
         'no_profiles_found' => 'No network profiles found matching your criteria.',
         'fetch' => [
             'started' => 'Fetch started',
-            'running_background' => 'Checking your YouTube sources in the background. This can take a moment.',
             'nothing_to_fetch' => 'No YouTube video sources to check.',
-            'complete' => 'Fetch complete',
-            'found_new_items' => ':count new item(s) found across your YouTube sources.',
             'in_progress' => 'Fetching…',
         ],
         'filter' => [

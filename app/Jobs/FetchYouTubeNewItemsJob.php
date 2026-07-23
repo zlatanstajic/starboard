@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\NetworkProfile;
+use GuzzleHttp\Cookie\CookieJar;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Carbon;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Throwable;
 
 class FetchYouTubeNewItemsJob implements ShouldQueue
@@ -20,26 +21,42 @@ class FetchYouTubeNewItemsJob implements ShouldQueue
 
     /**
      * A realistic browser User-Agent so YouTube returns the full
-     * server-rendered HTML shell (including the ytInitialData blob)
+     * server-rendered HTML shell (including the canonical channel link)
      * rather than a consent wall or a 429.
      */
     private const string USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
     /**
-     * Relative-time prefixes YouTube adds for livestreams/premieres that
-     * Carbon cannot parse and must be stripped first.
+     * YouTube's per-channel Atom feed. Fed the resolved channel id, it returns
+     * the most recent uploads with absolute <published> timestamps, avoiding the
+     * fragile HTML/ytInitialData scraping the job previously relied on.
+     */
+    private const string FEED_URL = 'https://www.youtube.com/feeds/videos.xml';
+
+    /**
+     * Hosts YouTube redirects to (or references in the served page) when it
+     * detects bot-like traffic and serves a sign-in/consent wall instead of
+     * the channel page.
      *
      * @var list<string>
      */
-    private const array TIME_PREFIXES = [
-        'Streamed ',
-        'Premiered ',
+    private const array BLOCKED_HOSTS = [
+        'accounts.google.com',
+        'consent.youtube.com',
     ];
 
     /**
-     * The number of seconds the job may run before timing out.
+     * The number of seconds the job may run before timing out. Large enough to
+     * cover the rare first run that fetches the channel page and the feed back
+     * to back before the channel id is cached.
      */
-    public int $timeout = 30;
+    public int $timeout = 45;
+
+    /**
+     * Retains cookies set while YouTube redirects through its regional consent
+     * flow before returning to the requested channel page.
+     */
+    private readonly CookieJar $cookies;
 
     /**
      * Create a new job instance.
@@ -47,7 +64,7 @@ class FetchYouTubeNewItemsJob implements ShouldQueue
     public function __construct(
         private readonly NetworkProfile $networkProfile
     ) {
-        //
+        $this->cookies = new CookieJar;
     }
 
     /**
@@ -55,6 +72,39 @@ class FetchYouTubeNewItemsJob implements ShouldQueue
      */
     public function handle(): void
     {
+        $channelId = $this->resolveChannelId();
+
+        if ($channelId === null) {
+            return;
+        }
+
+        $publishedTimes = $this->fetchPublishedTimes($channelId);
+
+        if ($publishedTimes === null) {
+            return;
+        }
+
+        $count = $this->countNewItems($publishedTimes);
+
+        if ($count !== $this->networkProfile->new_items) {
+            $this->networkProfile->update(['new_items' => $count]);
+        }
+    }
+
+    /**
+     * Return the profile's YouTube channel id, resolving it from the channel
+     * page and caching it on the profile the first time. Returns null (failing
+     * soft) when the URL is invalid, the request is blocked/fails, or the
+     * channel id cannot be found.
+     */
+    private function resolveChannelId(): ?string
+    {
+        $cached = $this->networkProfile->youtube_channel_id;
+
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
+
         $url = $this->networkProfile->profileUrl();
 
         if (! $this->isValidYouTubeUrl($url)) {
@@ -63,14 +113,95 @@ class FetchYouTubeNewItemsJob implements ShouldQueue
                 'url' => $url,
             ]);
 
-            return;
+            return null;
         }
 
+        $response = $this->request($url, ['hl' => 'en']);
+
+        if ($response === null || ! $response->ok()) {
+            Log::warning('FetchYouTubeNewItemsJob received non-OK channel response.', [
+                'network_profile_id' => $this->networkProfile->id,
+                'url' => $url,
+                'status' => $response?->status(),
+            ]);
+
+            return null;
+        }
+
+        if ($this->isBlockedResponse($response)) {
+            Log::warning('FetchYouTubeNewItemsJob request blocked by YouTube.', [
+                'network_profile_id' => $this->networkProfile->id,
+                'url' => $url,
+                'effective_host' => $response->effectiveUri()?->getHost(),
+            ]);
+
+            return null;
+        }
+
+        $channelId = $this->extractChannelId($response->body());
+
+        if ($channelId === null) {
+            Log::warning('FetchYouTubeNewItemsJob could not resolve channel id.', [
+                'network_profile_id' => $this->networkProfile->id,
+                'url' => $url,
+            ]);
+
+            return null;
+        }
+
+        $this->networkProfile->update(['youtube_channel_id' => $channelId]);
+
+        return $channelId;
+    }
+
+    /**
+     * Fetch the channel's Atom feed and return each video's absolute published
+     * timestamp. Returns null (failing soft) when the request fails, is non-OK,
+     * or the feed cannot be parsed.
+     *
+     * @return list<string>|null
+     */
+    private function fetchPublishedTimes(string $channelId): ?array
+    {
+        $response = $this->request(self::FEED_URL, ['channel_id' => $channelId]);
+
+        if ($response === null || ! $response->ok()) {
+            Log::warning('FetchYouTubeNewItemsJob received non-OK feed response.', [
+                'network_profile_id' => $this->networkProfile->id,
+                'channel_id' => $channelId,
+                'status' => $response?->status(),
+            ]);
+
+            return null;
+        }
+
+        $publishedTimes = $this->parseFeedPublishedTimes($response->body());
+
+        if ($publishedTimes === null) {
+            Log::warning('FetchYouTubeNewItemsJob could not parse feed.', [
+                'network_profile_id' => $this->networkProfile->id,
+                'channel_id' => $channelId,
+            ]);
+        }
+
+        return $publishedTimes;
+    }
+
+    /**
+     * Perform a GET request with the browser-like headers YouTube expects,
+     * returning null when the request throws.
+     *
+     * @param  array<string, string>  $query
+     */
+    private function request(string $url, array $query = []): ?Response
+    {
         try {
-            $response = Http::withHeaders([
+            return Http::withHeaders([
                 'User-Agent' => self::USER_AGENT,
                 'Accept-Language' => 'en',
-            ])->timeout(15)->get($url, ['hl' => 'en']);
+            ])->withOptions([
+                'cookies' => $this->cookies,
+            ])->timeout(15)->get($url, $query);
         } catch (Throwable $e) {
             Log::warning('FetchYouTubeNewItemsJob request failed.', [
                 'network_profile_id' => $this->networkProfile->id,
@@ -78,34 +209,7 @@ class FetchYouTubeNewItemsJob implements ShouldQueue
                 'message' => $e->getMessage(),
             ]);
 
-            return;
-        }
-
-        if (! $response->ok()) {
-            Log::warning('FetchYouTubeNewItemsJob received non-OK response.', [
-                'network_profile_id' => $this->networkProfile->id,
-                'url' => $url,
-                'status' => $response->status(),
-            ]);
-
-            return;
-        }
-
-        $publishedTimeTexts = $this->parsePublishedTimeTexts($response->body());
-
-        if ($publishedTimeTexts === null) {
-            Log::warning('FetchYouTubeNewItemsJob could not parse ytInitialData.', [
-                'network_profile_id' => $this->networkProfile->id,
-                'url' => $url,
-            ]);
-
-            return;
-        }
-
-        $count = $this->countNewItems($publishedTimeTexts);
-
-        if ($count !== $this->networkProfile->new_items) {
-            $this->networkProfile->update(['new_items' => $count]);
+            return null;
         }
     }
 
@@ -138,131 +242,109 @@ class FetchYouTubeNewItemsJob implements ShouldQueue
     }
 
     /**
-     * Extract each video's relative published time from the page's ytInitialData
-     * JSON blob. Returns null when the blob is absent or cannot be decoded so
-     * the caller can fail soft (leave new_items unchanged).
-     *
-     * @return list<string>|null
+     * Whether the response indicates YouTube blocked the request with a
+     * sign-in/consent wall rather than serving the channel page: either the
+     * request was redirected to a known blocked host, or the served page is
+     * itself a wall that client-side redirects/canonicalises to one.
      */
-    private function parsePublishedTimeTexts(string $html): ?array
+    private function isBlockedResponse(Response $response): bool
     {
-        if (! preg_match('/ytInitialData\s*=\s*(\{.*\})\s*;\s*<\/script>/s', $html, $matches)) {
-            return null;
+        $effectiveHost = $response->effectiveUri()?->getHost();
+
+        if ($effectiveHost !== null && $this->isBlockedHost($effectiveHost)) {
+            return true;
         }
 
-        $data = json_decode($matches[1], true);
-
-        if (! is_array($data)) {
-            return null;
-        }
-
-        $tabs = $data['contents']['twoColumnBrowseResultsRenderer']['tabs'] ?? null;
-
-        if (! is_array($tabs)) {
-            return null;
-        }
-
-        $texts = [];
-
-        foreach ($tabs as $tab) {
-            $contents = $tab['tabRenderer']['content']['richGridRenderer']['contents'] ?? null;
-
-            if (! is_array($contents)) {
-                continue;
-            }
-
-            foreach ($contents as $item) {
-                $content = $item['richItemRenderer']['content'] ?? null;
-
-                if (! is_array($content)) {
-                    continue;
-                }
-
-                $text = $this->extractPublishedTime($content);
-
-                if ($text !== null) {
-                    $texts[] = $text;
-                }
-            }
-        }
-
-        return $texts;
+        return $this->bodyRedirectsToBlockedHost($response->body());
     }
 
     /**
-     * Extract a single video's relative published time from a rich-grid item's
-     * content, supporting both YouTube's current lockupViewModel markup and the
-     * legacy videoRenderer markup it still serves in some regions/experiments.
-     *
-     * @param  array<string, mixed>  $content
+     * Whether the served page is a consent/sign-in wall that points a refresh
+     * meta tag or canonical link at a blocked host. This deliberately ignores
+     * the incidental accounts.google.com sign-in links present on every normal
+     * channel page, which must not count as a block.
      */
-    private function extractPublishedTime(array $content): ?string
+    private function bodyRedirectsToBlockedHost(string $body): bool
     {
-        $legacy = $content['videoRenderer']['publishedTimeText']['runs'][0]['text'] ?? null;
+        $hosts = implode('|', array_map(preg_quote(...), self::BLOCKED_HOSTS));
 
-        if (is_string($legacy) && $legacy !== '') {
-            return $legacy;
-        }
+        $metaRefresh = '/http-equiv=["\']?refresh["\'][^>]*content=["\'][^"\']*https?:\/\/(?:[\w-]+\.)*(?:'.$hosts.')/i';
+        $canonical = '/rel=["\']?canonical["\'][^>]*href=["\']https?:\/\/(?:[\w-]+\.)*(?:'.$hosts.')/i';
 
-        $rows = $content['lockupViewModel']['metadata']['lockupMetadataViewModel']['metadata']['contentMetadataViewModel']['metadataRows'] ?? null;
+        return preg_match($metaRefresh, $body) === 1
+            || preg_match($canonical, $body) === 1;
+    }
 
-        if (! is_array($rows)) {
-            return null;
-        }
+    /**
+     * Whether the given host matches one of the known blocked-signal hosts.
+     */
+    private function isBlockedHost(string $host): bool
+    {
+        return in_array(strtolower($host), self::BLOCKED_HOSTS, true);
+    }
 
-        foreach ($rows as $row) {
-            $parts = $row['metadataParts'] ?? null;
-
-            if (! is_array($parts)) {
-                continue;
-            }
-
-            foreach ($parts as $part) {
-                $text = $part['text']['content'] ?? null;
-
-                if (is_string($text) && $this->looksLikeRelativeTime($text)) {
-                    return $text;
-                }
-            }
+    /**
+     * Extract the channel id (a "UC"-prefixed 24-character token) from the
+     * channel page. The canonical channel link and the externalId/channelId
+     * fields are stable across YouTube's HTML experiments, unlike ytInitialData.
+     */
+    private function extractChannelId(string $html): ?string
+    {
+        if (preg_match('/(?:channel\/|"(?:externalId|channelId)"\s*:\s*")(UC[\w-]{22})/', $html, $matches) === 1) {
+            return $matches[1];
         }
 
         return null;
     }
 
     /**
-     * Whether the given text is a relative published-time string (e.g.
-     * "2 hours ago", "Streamed 1 week ago"), distinguishing it from the
-     * sibling view-count metadata part ("102K views").
+     * Extract each video's absolute published timestamp from the Atom feed.
+     * Returns null when the XML cannot be parsed so the caller can fail soft.
+     *
+     * @return list<string>|null
      */
-    private function looksLikeRelativeTime(string $text): bool
+    private function parseFeedPublishedTimes(string $xml): ?array
     {
-        return preg_match('/\d+\s+(second|minute|hour|day|week|month|year)s?\s+ago/i', $text) === 1;
+        $previous = libxml_use_internal_errors(true);
+        $feed = simplexml_load_string($xml);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if ($feed === false) {
+            return null;
+        }
+
+        $times = [];
+
+        foreach ($feed->entry as $entry) {
+            $published = trim((string) $entry->published);
+
+            if ($published !== '') {
+                $times[] = $published;
+            }
+        }
+
+        return $times;
     }
 
     /**
      * Count how many videos were published at/after the profile's last visit.
      *
-     * @param  list<string>  $publishedTimeTexts
+     * @param  list<string>  $publishedTimes
      */
-    private function countNewItems(array $publishedTimeTexts): int
+    private function countNewItems(array $publishedTimes): int
     {
         $lastVisitAt = $this->networkProfile->last_visit_at;
 
         if ($lastVisitAt === null) {
-            return count($publishedTimeTexts);
+            return count($publishedTimes);
         }
 
         $count = 0;
 
-        foreach ($publishedTimeTexts as $text) {
-            $normalized = Str::of($text)->trim();
-
-            foreach (self::TIME_PREFIXES as $prefix) {
-                $normalized = $normalized->replaceStart($prefix, '');
-            }
-
+        foreach ($publishedTimes as $time) {
             try {
-                $publishedAt = \Illuminate\Support\Facades\Date::parse((string) $normalized);
+                $publishedAt = Date::parse($time);
             } catch (Throwable) {
                 continue;
             }

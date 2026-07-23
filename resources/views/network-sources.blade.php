@@ -44,7 +44,8 @@
                                     <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
                                         <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{{ $networkSources->firstItem() + $loop->index }}</td>
                                         <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
-                                            <a href="{{ route('dashboard', ['filter' => ['network_source_id' => $source->id]]) }}" class="text-indigo-600 hover:underline">
+                                            <a href="{{ route('dashboard', ['filter' => ['network_source_id' => $source->id]]) }}" class="inline-flex items-center text-indigo-600 hover:underline">
+                                                <x-source-icon :slug="$source->icon" :title="$source->name" class="w-4 h-4 mr-2" />
                                                 {{ Str::limit($source->name, 30, '...') }}
                                             </a>
                                         </td>

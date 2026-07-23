@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\NetworkSourcesEnum;
 use App\Models\Scopes\UserScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,6 +13,7 @@ use Override;
 
 /**
  * @property string $url
+ * @property ?string $icon
  */
 class NetworkSource extends Model
 {
@@ -51,6 +53,12 @@ class NetworkSource extends Model
     protected static function booted(): void
     {
         static::addGlobalScope(new UserScope);
+
+        static::saving(function (NetworkSource $networkSource): void {
+            if ($networkSource->isDirty('url') || ! $networkSource->exists) {
+                $networkSource->icon = NetworkSourcesEnum::fromUrl($networkSource->url ?? '')?->value;
+            }
+        });
 
         static::deleted(function (NetworkSource $networkSource): void {
             $networkSource->networkProfiles()->delete();

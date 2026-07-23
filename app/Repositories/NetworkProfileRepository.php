@@ -27,15 +27,7 @@ class NetworkProfileRepository extends Repository
     ): LengthAwarePaginator {
         $query = $this->buildStandardQuery(
             NetworkProfile::class,
-            filters: [
-                AllowedFilter::scope('visits', 'byVisits'),
-                AllowedFilter::scope('last_visit', 'byLastVisit'),
-                AllowedFilter::scope('new_items', 'byNewItems'),
-                AllowedFilter::callback('has_description', $this->filterHasDescription(...)),
-                AllowedFilter::callback('search', $this->filterSearch(...)),
-                AllowedFilter::callback('tags', $this->filterTags(...)),
-                AllowedFilter::callback('exclude_tags', $this->filterExcludeTags(...)),
-            ]
+            filters: $this->additionalAllowedFilters()
         )
             ->defaultSort($defaultSort);
 
@@ -90,14 +82,20 @@ class NetworkProfileRepository extends Repository
     }
 
     /**
-     * Gets network profiles whose network source is a
-     * YouTube videos page, streamed lazily via a cursor.
+     * Gets network profiles whose network source is a YouTube videos page,
+     * streamed lazily via a cursor. When $onlyMatchingFilters is true, the
+     * same filters the dashboard listing (getAll) supports are applied from
+     * the current request, so only profiles matching them are returned.
      *
      * @return LazyCollection<int, NetworkProfile>
      */
-    public function getYouTubeVideoProfiles(): LazyCollection
+    public function getYouTubeVideoProfiles(bool $onlyMatchingFilters = false): LazyCollection
     {
-        return NetworkProfile::query()
+        $query = $onlyMatchingFilters
+            ? $this->buildStandardQuery(NetworkProfile::class, filters: $this->additionalAllowedFilters())
+            : NetworkProfile::query();
+
+        return $query
             ->whereHas('networkSource', function (Builder $query): void {
                 $query->withoutGlobalScopes()
                     ->where(function (Builder $q): void {
@@ -121,6 +119,25 @@ class NetworkProfileRepository extends Repository
         ]);
 
         return $networkProfile;
+    }
+
+    /**
+     * The scope/callback filters layered on top of NetworkProfile's own
+     * ALLOWED_FILTERS (which buildStandardQuery merges in automatically).
+     *
+     * @return list<AllowedFilter>
+     */
+    private function additionalAllowedFilters(): array
+    {
+        return [
+            AllowedFilter::scope('visits', 'byVisits'),
+            AllowedFilter::scope('last_visit', 'byLastVisit'),
+            AllowedFilter::scope('new_items', 'byNewItems'),
+            AllowedFilter::callback('has_description', $this->filterHasDescription(...)),
+            AllowedFilter::callback('search', $this->filterSearch(...)),
+            AllowedFilter::callback('tags', $this->filterTags(...)),
+            AllowedFilter::callback('exclude_tags', $this->filterExcludeTags(...)),
+        ];
     }
 
     /**

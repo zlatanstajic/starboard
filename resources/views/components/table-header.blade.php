@@ -22,12 +22,14 @@
             </button>
         @endif
 
+        {{-- Fetch button hidden for now (YouTube videos fetch disabled on the frontend). --}}
+        {{--
         <div x-data="fetchIndicator({
                 active: @js((bool) session('fetch_batch_id')),
                 statusUrl: @js(route('network-profiles.fetch.status')),
                 progressLabel: @js(__('messages.network_profile.fetch.in_progress')),
-            })">
-            <form method="POST" action="{{ route('network-profiles.fetch') }}" @submit="submitting = true">
+            })" class="flex items-center gap-2">
+            <form id="fetch-form" method="POST" action="{{ route('network-profiles.fetch', request()->query()) }}" @submit="submitting = true">
                 @csrf
                 <button type="submit" :disabled="busy"
                         class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
@@ -43,6 +45,8 @@
                 </button>
             </form>
         </div>
+        --}}
+
 
         @once
             <script>

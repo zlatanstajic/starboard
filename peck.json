@@ -21,7 +21,13 @@
             "rethrows",
             "ssrf",
             "renderer",
-            "livestream"
+            "truthy",
+            "livestream",
+            "canonicalises",
+            "UC",
+            "substring",
+            "substrings",
+            "svg"
         ],
         "paths": []
     }

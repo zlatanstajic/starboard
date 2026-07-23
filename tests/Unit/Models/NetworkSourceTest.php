@@ -75,6 +75,54 @@ class NetworkSourceTest extends TestCase
         $this->assertSoftDeleted('network_profiles', ['id' => $profile->id]);
     }
 
+    public function test_icon_is_not_mass_assignable(): void
+    {
+        $source = NetworkSource::factory()->create();
+
+        $this->assertNotContains('icon', $source->getFillable());
+    }
+
+    public function test_icon_is_not_overridden_by_mass_assignment(): void
+    {
+        $source = NetworkSource::factory()->create([
+            'url' => 'https://youtube.com/@channel/videos',
+            'icon' => 'facebook',
+        ]);
+
+        $this->assertSame('youtube', $source->icon);
+    }
+
+    public function test_icon_is_derived_from_url_on_create(): void
+    {
+        $source = NetworkSource::factory()->create([
+            'url' => 'https://youtube.com/@channel/videos',
+        ]);
+
+        $this->assertSame('youtube', $source->icon);
+    }
+
+    public function test_icon_is_null_for_unknown_url_on_create(): void
+    {
+        $source = NetworkSource::factory()->create([
+            'url' => 'https://example.com/profile',
+        ]);
+
+        $this->assertNull($source->icon);
+    }
+
+    public function test_icon_is_recomputed_when_url_changes(): void
+    {
+        $source = NetworkSource::factory()->create([
+            'url' => 'https://youtube.com/@channel/videos',
+        ]);
+
+        $this->assertSame('youtube', $source->icon);
+
+        $source->update(['url' => 'https://rumble.com/c/channel']);
+
+        $this->assertSame('rumble', $source->fresh()->icon);
+    }
+
     public function test_restoring_source_restores_soft_deleted_profiles(): void
     {
         $user = User::factory()->create();

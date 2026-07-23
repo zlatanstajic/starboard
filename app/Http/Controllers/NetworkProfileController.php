@@ -16,6 +16,7 @@ use Exception;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
 use RealRashid\SweetAlert\Facades\Alert;
 
@@ -123,11 +124,14 @@ class NetworkProfileController extends Controller
     /**
      * Dispatches a batch of background jobs to fetch new items for YouTube
      * profiles and records the batch id so the dashboard can poll its progress.
+     * Fetching is always scoped to the profiles matching the current dashboard
+     * filters. Redirects back to the current dashboard URL, preserving the
+     * active query string.
      */
-    public function fetch(): RedirectResponse
+    public function fetch(Request $request): RedirectResponse
     {
         try {
-            $batch = $this->networkProfileService->fetchNewItems();
+            $batch = $this->networkProfileService->fetchNewItems(true);
 
             if ($batch === null) {
                 Alert::info(
@@ -135,26 +139,20 @@ class NetworkProfileController extends Controller
                     __('messages.network_profile.fetch.nothing_to_fetch')
                 );
 
-                return $this->handleRedirect();
+                return $this->handleRedirect($request);
             }
 
             session(['fetch_batch_id' => $batch->id]);
-
-            Alert::info(
-                __('messages.network_profile.fetch.started'),
-                __('messages.network_profile.fetch.running_background')
-            );
         } catch (Exception $e) {
             $this->handleException($e);
         }
 
-        return $this->handleRedirect();
+        return $this->handleRedirect($request);
     }
 
     /**
      * Reports the progress of the current fetch batch for polling. When the
-     * batch has finished it flashes a completion alert (shown on the next page
-     * load) and clears the tracked batch id.
+     * batch has finished it clears the tracked batch id.
      */
     public function fetchStatus(): JsonResponse
     {
@@ -174,13 +172,6 @@ class NetworkProfileController extends Controller
 
         if ($batch->finished()) {
             session()->forget('fetch_batch_id');
-
-            Alert::success(
-                __('messages.network_profile.fetch.complete'),
-                __('messages.network_profile.fetch.found_new_items', [
-                    'count' => $this->networkProfileService->newItemsTotal(),
-                ])
-            );
         }
 
         return response()->json([

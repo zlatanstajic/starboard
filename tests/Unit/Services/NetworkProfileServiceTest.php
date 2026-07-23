@@ -152,6 +152,34 @@ class NetworkProfileServiceTest extends TestCase
             && $pending->jobs->every(fn ($job): bool => $job instanceof FetchYouTubeNewItemsJob));
     }
 
+    public function test_fetch_new_items_staggers_each_job_by_five_seconds(): void
+    {
+        Bus::fake();
+        Date::setTestNow(now()->startOfSecond());
+
+        $profiles = LazyCollection::make([
+            new NetworkProfile,
+            new NetworkProfile,
+            new NetworkProfile,
+        ]);
+
+        $this->repository
+            ->shouldReceive('getYouTubeVideoProfiles')
+            ->once()
+            ->andReturn($profiles);
+
+        $this->service->fetchNewItems();
+
+        Bus::assertBatched(function (PendingBatch $pending): bool {
+            $jobs = $pending->jobs->values();
+
+            return $jobs->count() === 3
+                && now()->eq($jobs[0]->delay)
+                && now()->addSeconds(5)->eq($jobs[1]->delay)
+                && now()->addSeconds(10)->eq($jobs[2]->delay);
+        });
+    }
+
     public function test_fetch_new_items_returns_null_when_no_youtube_profiles(): void
     {
         Bus::fake();
@@ -163,6 +191,21 @@ class NetworkProfileServiceTest extends TestCase
 
         $this->assertNull($this->service->fetchNewItems());
         Bus::assertNothingBatched();
+    }
+
+    public function test_fetch_new_items_forwards_only_matching_filters_flag_to_repository(): void
+    {
+        Bus::fake();
+
+        $this->repository
+            ->shouldReceive('getYouTubeVideoProfiles')
+            ->once()
+            ->with(true)
+            ->andReturn(LazyCollection::make([new NetworkProfile]));
+
+        $batch = $this->service->fetchNewItems(true);
+
+        $this->assertNotNull($batch);
     }
 
     public function test_new_items_total_sums_new_items_across_profiles(): void

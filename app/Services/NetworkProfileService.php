@@ -10,9 +10,17 @@ use App\Repositories\NetworkProfileRepository;
 use Illuminate\Bus\Batch;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Date;
 
 class NetworkProfileService
 {
+    /**
+     * The number of seconds to stagger each YouTube fetch job by within a
+     * batch, so profiles aren't all requested from YouTube back-to-back
+     * (which makes the traffic look bot-like and risks being blocked).
+     */
+    private const int FETCH_STAGGER_SECONDS = 5;
+
     /**
      * Constructs class.
      */
@@ -69,11 +77,14 @@ class NetworkProfileService
      * Dispatches a batch of background jobs (one per YouTube-video profile) to
      * fetch and count videos published since the last visit. Returns the batch
      * so its progress can be tracked, or null when there are no such profiles.
+     * When $onlyMatchingFilters is true, only profiles matching the current
+     * request's dashboard filters are fetched instead of all of them.
      */
-    public function fetchNewItems(): ?Batch
+    public function fetchNewItems(bool $onlyMatchingFilters = false): ?Batch
     {
-        $jobs = $this->networkProfileRepository->getYouTubeVideoProfiles()
-            ->map(fn (NetworkProfile $networkProfile): FetchYouTubeNewItemsJob => new FetchYouTubeNewItemsJob($networkProfile))
+        $jobs = $this->networkProfileRepository->getYouTubeVideoProfiles($onlyMatchingFilters)
+            ->map(fn (NetworkProfile $networkProfile, int $index): FetchYouTubeNewItemsJob => (new FetchYouTubeNewItemsJob($networkProfile))
+                ->delay(Date::now()->addSeconds($index * self::FETCH_STAGGER_SECONDS)))
             ->all();
 
         if ($jobs === []) {

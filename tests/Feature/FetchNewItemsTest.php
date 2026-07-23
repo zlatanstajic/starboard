@@ -24,23 +24,6 @@ class FetchNewItemsTest extends TestCase
         $this->withoutMiddleware(VerifyCsrfToken::class);
     }
 
-    public function test_fetch_button_renders_left_of_refresh_button(): void
-    {
-        $user = User::factory()->create();
-
-        $response = $this->actingAs($user)->get(route('dashboard'));
-
-        $response->assertOk();
-        $content = $response->getContent();
-
-        $fetchPos = strpos($content, route('network-profiles.fetch'));
-        $refreshPos = strpos($content, 'window.location.href=window.location.href');
-
-        $this->assertNotFalse($fetchPos, 'Fetch form action not found on dashboard.');
-        $this->assertNotFalse($refreshPos, 'Refresh button not found on dashboard.');
-        $this->assertLessThan($refreshPos, $fetchPos, 'Fetch button should appear before (left of) Refresh.');
-    }
-
     public function test_fetch_route_dispatches_a_job_for_each_youtube_profile(): void
     {
         Bus::fake();
@@ -104,6 +87,65 @@ class FetchNewItemsTest extends TestCase
 
         $this->assertContains($withNew->username, $usernames);
         $this->assertNotContains($withoutNew->username, $usernames);
+    }
+
+    public function test_fetch_always_dispatches_jobs_for_matching_profiles_only(): void
+    {
+        Bus::fake();
+
+        $user = User::factory()->create();
+        $youtube = NetworkSource::factory()->create([
+            'user_id' => $user->id,
+            'url' => 'https://youtube.com/@{username}/videos',
+        ]);
+
+        NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $youtube->id,
+            'username' => 'matching_'.$this->timestamp,
+            'new_items' => 3,
+        ]);
+        NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $youtube->id,
+            'username' => 'non_matching_'.$this->timestamp,
+            'new_items' => 0,
+        ]);
+
+        // No "only_filtered" input is submitted; filtered fetching is now the
+        // unconditional behavior, so only the matching profile is dispatched.
+        $response = $this->actingAs($user)->post(
+            route('network-profiles.fetch', ['filter' => ['new_items' => '1']])
+        );
+
+        $response->assertRedirect(route('dashboard', ['filter' => ['new_items' => '1']]));
+        Bus::assertBatched(fn (PendingBatch $batch): bool => $batch->jobs->count() === 1);
+    }
+
+    public function test_fetch_redirect_preserves_current_query_string(): void
+    {
+        Bus::fake();
+
+        $user = User::factory()->create();
+        $youtube = NetworkSource::factory()->create([
+            'user_id' => $user->id,
+            'url' => 'https://youtube.com/@{username}/videos',
+        ]);
+
+        NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $youtube->id,
+            'username' => 'preserve_'.$this->timestamp,
+            'new_items' => 5,
+        ]);
+
+        $query = ['filter' => ['new_items' => '1'], 'sort' => 'username'];
+
+        $response = $this->actingAs($user)->post(
+            route('network-profiles.fetch', $query)
+        );
+
+        $response->assertRedirect(route('dashboard', $query));
     }
 
     public function test_visiting_a_profile_resets_new_items_to_zero(): void

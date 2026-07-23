@@ -181,6 +181,44 @@ class NetworkSourceRepositoryTest extends TestCase
         $this->assertArrayHasKey('network_profiles_count', $first->getAttributes());
     }
 
+    public function test_upsert_persists_icon_for_known_url(): void
+    {
+        $user = User::factory()->create();
+        $unique = uniqid();
+        $data = [
+            'user_id' => $user->id,
+            'name' => 'YouTube_'.$unique,
+            'url' => 'https://youtube.com/@'.$unique,
+        ];
+
+        $result = $this->repository->upsert($data);
+
+        $this->assertSame('youtube', $result->icon);
+        $this->assertDatabaseHas('network_sources', [
+            'id' => $result->id,
+            'icon' => 'youtube',
+        ]);
+    }
+
+    public function test_upsert_persists_null_icon_for_unknown_url(): void
+    {
+        $user = User::factory()->create();
+        $unique = uniqid();
+        $data = [
+            'user_id' => $user->id,
+            'name' => 'Unknown_'.$unique,
+            'url' => 'https://example.com/'.$unique,
+        ];
+
+        $result = $this->repository->upsert($data);
+
+        $this->assertNull($result->icon);
+        $this->assertDatabaseHas('network_sources', [
+            'id' => $result->id,
+            'icon' => null,
+        ]);
+    }
+
     public function test_upsert_creates_source_with_exclude_from_dashboard(): void
     {
         $user = User::factory()->create();

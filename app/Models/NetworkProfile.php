@@ -18,6 +18,7 @@ use Override;
 /**
  * @property int $id
  * @property string $username
+ * @property ?string $youtube_channel_id
  * @property int $number_of_visits
  * @property int $new_items
  * @property ?Carbon $created_at
@@ -66,6 +67,7 @@ class NetworkProfile extends Model
         'user_id',
         'network_source_id',
         'username',
+        'youtube_channel_id',
         'title',
         'description',
         'is_public',

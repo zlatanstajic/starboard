@@ -22,8 +22,9 @@ class NetworkSourceSeeder extends Seeder
             'user_id' => $userId,
             'name' => $source->name,
             'url' => $source->urlTemplate(),
+            'icon' => $source->value,
         ])->toArray();
 
-        NetworkSource::upsert($data, ['id'], ['name', 'url']);
+        NetworkSource::upsert($data, ['id'], ['name', 'url', 'icon']);
     }
 }

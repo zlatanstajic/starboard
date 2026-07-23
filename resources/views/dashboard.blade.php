@@ -99,6 +99,8 @@
                             </select>
                         </div>
 
+                        {{-- New items filter hidden for now (YouTube videos fetch disabled on the frontend). --}}
+                        {{--
                         <div class="w-full md:w-1/6">
                             <select onchange="window.location.href=this.value" aria-label="{{ __('messages.network_profile.filter.all_new_items') }}" class="bg-gray-50 border border-gray-300 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                 <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['new_items' => null])]) }}" {{ !request('filter.new_items') ? 'selected' : '' }}>{{ __('messages.network_profile.filter.all_new_items') }}</option>
@@ -106,6 +108,7 @@
                                 <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['new_items' => '0'])]) }}" {{ request('filter.new_items') === '0' ? 'selected' : '' }}>{{ __('messages.network_profile.filter.without_new_items') }}</option>
                             </select>
                         </div>
+                        --}}
 
                         <div class="w-full md:w-1/6">
                             <select onchange="window.location.href=this.value" aria-label="{{ __('messages.network_profile.filter.all_tags') }}" class="bg-gray-50 border border-gray-300 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
@@ -260,7 +263,6 @@
                             <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                 <tr>
                                     <th scope="col" class="px-6 py-3">#</th>
-                                    <th scope="col" class="px-6 py-3">{{ __('messages.default.source') }}</th>
                                     <th scope="col" class="px-6 py-3">{{ __('messages.default.name') }}</th>
                                     <th scope="col" class="px-6 py-3 text-center">{{ __('messages.default.tags') }}</th>
                                     <th scope="col" class="px-6 py-3 text-center">{{ __('messages.default.status') }}</th>
@@ -275,26 +277,25 @@
                                     <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
                                         <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{{ $networkProfiles->firstItem() + $loop->index }}</td>
                                         <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
-                                            {{ Str::limit($profile->networkSource?->name ?? '—', 15, '...') }}
-                                        </td>
+                                            <div class="flex items-center">
+                                                <x-source-icon :slug="$profile->networkSource?->icon" :title="$profile->networkSource?->name" :fallback="$profile->networkSource !== null" class="w-4 h-4 shrink-0 mr-2" />
+                                                <a href="{{ $profile->profileUrl() }}"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                title="{{ $profile->description ?? $profile->username }}"
+                                                data-profile-id="{{ $profile->id }}"
+                                                class="increment-visit-link hover:underline {{ $profile->title ? 'text-gray-900 dark:text-white' : 'text-gray-900 dark:text-gray-100' }}">
 
-                                        <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
-                                            <a href="{{ $profile->profileUrl() }}"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            title="{{ $profile->description ?? $profile->username }}"
-                                            data-profile-id="{{ $profile->id }}"
-                                            class="increment-visit-link hover:underline {{ $profile->title ? 'text-gray-900 dark:text-white' : 'text-gray-900 dark:text-gray-100' }}">
-
-                                                @if($profile->title)
-                                                    {{ Str::limit($profile->title, 25, '...') }}
-                                                @else
-                                                    <span class="text-blue-600 dark:text-blue-400 font-medium">@</span>
-                                                    {{ Str::limit($profile->username, 25, '...') }}
-                                                @endif
-                                            </a>
-                                            <span class="new-items-badge ml-2 bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-full dark:bg-red-900 dark:text-red-300 {{ $profile->new_items > 0 ? '' : 'hidden' }}"
-                                                title="{{ __('messages.network_profile.new_items_title') }}">{{ $profile->new_items }}</span>
+                                                    @if($profile->title)
+                                                        {{ Str::limit($profile->title, 25, '...') }}
+                                                    @else
+                                                        <span class="text-blue-600 dark:text-blue-400 font-medium">@</span>
+                                                        {{ Str::limit($profile->username, 25, '...') }}
+                                                    @endif
+                                                </a>
+                                                <span class="new-items-badge ml-2 bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-full dark:bg-red-900 dark:text-red-300 {{ $profile->new_items > 0 ? '' : 'hidden' }}"
+                                                    title="{{ __('messages.network_profile.new_items_title') }}">{{ $profile->new_items }}</span>
+                                            </div>
                                         </td>
 
                                         @if($profile->networkTags->isNotEmpty())
@@ -358,7 +359,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="9" class="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
+                                        <td colspan="8" class="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
                                             {{ __('messages.network_profile.no_profiles_found') }}
                                         </td>
                                     </tr>

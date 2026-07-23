@@ -143,10 +143,7 @@ return [
         'no_profiles_found' => 'Nema mrežnih profila koji odgovaraju vašim kriterijumima.',
         'fetch' => [
             'started' => 'Preuzimanje započeto',
-            'running_background' => 'Proveravamo vaše YouTube izvore u pozadini. Ovo može potrajati.',
             'nothing_to_fetch' => 'Nema YouTube video izvora za proveru.',
-            'complete' => 'Preuzimanje završeno',
-            'found_new_items' => 'Pronađeno novih stavki: :count na vašim YouTube izvorima.',
             'in_progress' => 'Preuzimanje…',
         ],
         'filter' => [
