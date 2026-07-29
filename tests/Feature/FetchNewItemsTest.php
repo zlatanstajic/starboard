@@ -9,7 +9,7 @@ use App\Models\NetworkProfile;
 use App\Models\NetworkSource;
 use App\Models\User;
 use Illuminate\Bus\PendingBatch;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Bus;
 use Override;
 use Tests\TestCase;
@@ -21,7 +21,7 @@ class FetchNewItemsTest extends TestCase
     {
         parent::setUp();
 
-        $this->withoutMiddleware(VerifyCsrfToken::class);
+        $this->withoutMiddleware(PreventRequestForgery::class);
     }
 
     public function test_fetch_route_dispatches_a_job_for_each_youtube_profile(): void

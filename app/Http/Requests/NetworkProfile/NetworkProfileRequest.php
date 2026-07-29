@@ -6,6 +6,7 @@ namespace App\Http\Requests\NetworkProfile;
 
 use App\Http\Requests\Request;
 use Illuminate\Support\Str;
+use Override;
 
 abstract class NetworkProfileRequest extends Request
 {
@@ -53,6 +54,7 @@ abstract class NetworkProfileRequest extends Request
     /**
      * Prepares data for validation.
      */
+    #[Override]
     protected function prepareForValidation(): void
     {
         $merge = [

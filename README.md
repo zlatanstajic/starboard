@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
 [![Coverage: 95%+](https://img.shields.io/badge/Coverage-95%25%2B-brightgreen.svg)](https://github.com/zlatanstajic/starboard/actions)
 [![PHP 8.3+](https://img.shields.io/badge/PHP-8.3%2B-blue.svg)](https://www.php.net/)
-[![Laravel 12](https://img.shields.io/badge/Laravel-12-red.svg)](https://laravel.com/)
+[![Laravel 13](https://img.shields.io/badge/Laravel-13-red.svg)](https://laravel.com/)
 
 A modern, centralized platform to track and manage your favorite creators and influencers across multiple social media networks. Monitor profile visits, organize favorites, and maintain a comprehensive directory of creators all in one place.
 
@@ -60,7 +60,7 @@ A modern, centralized platform to track and manage your favorite creators and in
 
 ## Tech Stack
 
-- **Backend**: Laravel 12 with PHP 8.3
+- **Backend**: Laravel 13 with PHP 8.3
 - **Frontend**: Blade Templates with Alpine.js
 - **Styling**: Tailwind CSS
 - **Database**: MySQL/MariaDB

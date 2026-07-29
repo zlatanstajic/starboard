@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -21,26 +23,18 @@ use Override;
  * @property string $email
  * @property string $email_verified_at
  */
+#[Fillable([
+    'name',
+    'email',
+    'password',
+])]
+#[Hidden([
+    'password',
+    'remember_token',
+])]
 class User extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory, Notifiable, SoftDeletes;
-
-    /**
-     * The attributes that are mass assignable.
-     */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-    ];
-
-    /**
-     * The attributes that should be hidden for serialization.
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
 
     /**
      * User has many network profiles.
@@ -82,6 +76,7 @@ class User extends Authenticatable implements MustVerifyEmail
     /**
      * Get the attributes that should be cast.
      */
+    #[Override]
     protected function casts(): array
     {
         return [

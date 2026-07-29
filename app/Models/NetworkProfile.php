@@ -135,6 +135,7 @@ class NetworkProfile extends Model
     /**
      * Get the attributes that should be cast.
      */
+    #[Override]
     protected function casts(): array
     {
         return [

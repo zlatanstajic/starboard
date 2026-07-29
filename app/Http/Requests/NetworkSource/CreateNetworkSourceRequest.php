@@ -33,6 +33,7 @@ final class CreateNetworkSourceRequest extends NetworkSourceRequest
     /**
      * Prepares data for validation.
      */
+    #[Override]
     protected function prepareForValidation(): void
     {
         $this->merge([

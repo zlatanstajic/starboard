@@ -12,7 +12,7 @@ use App\Services\NetworkProfileService;
 use App\Services\NetworkSourceService;
 use Exception;
 use Illuminate\Bus\Batch;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Mockery;
 use Override;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -27,7 +27,7 @@ class NetworkProfileControllerTest extends TestCase
         parent::setUp();
 
         // Disable only CSRF so requests can be made without tokens but keep route bindings
-        $this->withoutMiddleware(VerifyCsrfToken::class);
+        $this->withoutMiddleware(PreventRequestForgery::class);
     }
 
     /**

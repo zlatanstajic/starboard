@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\NetworkSource;
 
+use Override;
+
 final class UpdateNetworkSourceRequest extends NetworkSourceRequest
 {
     /**
@@ -22,6 +24,7 @@ final class UpdateNetworkSourceRequest extends NetworkSourceRequest
     /**
      * Prepares data for validation.
      */
+    #[Override]
     protected function prepareForValidation(): void
     {
         $this->merge([
