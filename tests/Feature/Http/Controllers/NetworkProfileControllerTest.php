@@ -15,6 +15,7 @@ use Illuminate\Bus\Batch;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Mockery;
 use Override;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RealRashid\SweetAlert\Facades\Alert;
 use Tests\TestCase;
 
@@ -27,6 +28,33 @@ class NetworkProfileControllerTest extends TestCase
 
         // Disable only CSRF so requests can be made without tokens but keep route bindings
         $this->withoutMiddleware(VerifyCsrfToken::class);
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function storeUsernameNormalizationProvider(): array
+    {
+        return [
+            'strips single leading at' => ['@MrBeast', 'MrBeast'],
+            'leaves bare handle unchanged' => ['MrBeast', 'MrBeast'],
+            'strips only one leading at' => ['@@MrBeast', '@MrBeast'],
+            'preserves non-leading at' => ['Mr@Beast', 'Mr@Beast'],
+            'trims surrounding spaces' => ['  @MrBeast  ', 'MrBeast'],
+            'trims spaces exposed after at' => ['@ MrBeast', 'MrBeast'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function updateUsernameNormalizationProvider(): array
+    {
+        return [
+            'strips single leading at' => ['@updated', 'updated'],
+            'strips only one leading at' => ['@@updated', '@updated'],
+            'trims surrounding spaces' => ['  @updated  ', 'updated'],
+        ];
     }
 
     public function test_index_returns_view_with_data(): void
@@ -373,5 +401,159 @@ class NetworkProfileControllerTest extends TestCase
 
         $this->assertTrue($response->isRedirect());
         $this->assertEquals(route('dashboard'), $response->headers->get('Location'));
+    }
+
+    #[DataProvider('storeUsernameNormalizationProvider')]
+    public function test_store_normalizes_username_before_passing_to_service(string $input, string $expected): void
+    {
+        $user = User::factory()->create();
+        $networkSource = NetworkSource::factory()->create();
+
+        $payload = [
+            'network_source_id' => $networkSource->id,
+            'username' => $input,
+            'is_public' => true,
+            'is_favorite' => false,
+        ];
+
+        $service = Mockery::mock(NetworkProfileService::class);
+        $service->shouldReceive('create')
+            ->once()
+            ->with(Mockery::on(fn ($arg) => $arg['username'] === $expected))
+            ->andReturn(NetworkProfile::factory()->make());
+
+        $this->app->instance(NetworkProfileService::class, $service);
+
+        $response = $this->actingAs($user)
+            ->post(route('network-profiles.store'), $payload);
+
+        $this->assertTrue($response->isRedirect());
+        $this->assertEquals(route('dashboard'), $response->headers->get('Location'));
+    }
+
+    public function test_store_rejects_bare_at_username_and_does_not_call_service(): void
+    {
+        $user = User::factory()->create();
+        $networkSource = NetworkSource::factory()->create();
+
+        $payload = [
+            'network_source_id' => $networkSource->id,
+            'username' => '@',
+            'is_public' => true,
+            'is_favorite' => false,
+        ];
+
+        $service = Mockery::mock(NetworkProfileService::class);
+        $service->shouldNotReceive('create');
+
+        $this->app->instance(NetworkProfileService::class, $service);
+
+        $response = $this->actingAs($user)
+            ->post(route('network-profiles.store'), $payload);
+
+        $response->assertSessionHasErrors('username');
+    }
+
+    public function test_store_rejects_non_string_username_and_does_not_call_service(): void
+    {
+        $user = User::factory()->create();
+        $networkSource = NetworkSource::factory()->create();
+
+        $payload = [
+            'network_source_id' => $networkSource->id,
+            'username' => ['unexpected', 'array'],
+            'is_public' => true,
+            'is_favorite' => false,
+        ];
+
+        $service = Mockery::mock(NetworkProfileService::class);
+        $service->shouldNotReceive('create');
+
+        $this->app->instance(NetworkProfileService::class, $service);
+
+        $response = $this->actingAs($user)
+            ->post(route('network-profiles.store'), $payload);
+
+        $response->assertSessionHasErrors('username');
+    }
+
+    #[DataProvider('updateUsernameNormalizationProvider')]
+    public function test_update_normalizes_username(string $input, string $expected): void
+    {
+        $user = User::factory()->create();
+        $networkSource = NetworkSource::factory()->create();
+        $networkProfile = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $networkSource->id,
+            'username' => 'original',
+        ]);
+
+        $payload = [
+            'username' => $input,
+        ];
+
+        $response = $this->actingAs($user)
+            ->put(route('network-profiles.update', ['networkProfile' => $networkProfile->id]), $payload);
+
+        $this->assertTrue($response->isRedirect());
+        $this->assertEquals(route('dashboard'), $response->headers->get('Location'));
+
+        $networkProfile->refresh();
+        $this->assertEquals($expected, $networkProfile->username);
+    }
+
+    public function test_update_without_username_preserves_stored_value(): void
+    {
+        $user = User::factory()->create();
+        $networkSource = NetworkSource::factory()->create();
+        $networkProfile = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $networkSource->id,
+            'username' => 'original',
+        ]);
+
+        $response = $this->actingAs($user)
+            ->put(route('network-profiles.update', ['networkProfile' => $networkProfile->id]), [
+                'is_public' => true,
+            ]);
+
+        $this->assertTrue($response->isRedirect());
+
+        $networkProfile->refresh();
+        $this->assertEquals('original', $networkProfile->username);
+    }
+
+    public function test_update_rejects_bare_at_username_and_preserves_value(): void
+    {
+        $user = User::factory()->create();
+        $networkSource = NetworkSource::factory()->create();
+        $networkProfile = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $networkSource->id,
+            'username' => 'original',
+        ]);
+
+        $response = $this->actingAs($user)
+            ->put(route('network-profiles.update', ['networkProfile' => $networkProfile->id]), [
+                'username' => '@',
+            ]);
+
+        $response->assertSessionHasErrors('username');
+
+        $networkProfile->refresh();
+        $this->assertEquals('original', $networkProfile->username);
+    }
+
+    public function test_destroy_still_soft_deletes_with_inherited_prepare_for_validation(): void
+    {
+        $user = User::factory()->create();
+        $networkProfile = NetworkProfile::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->actingAs($user)
+            ->delete(route('network-profiles.destroy', ['networkProfile' => $networkProfile->id]));
+
+        $this->assertTrue($response->isRedirect());
+        $this->assertEquals(route('dashboard'), $response->headers->get('Location'));
+        $this->assertSoftDeleted('network_profiles', ['id' => $networkProfile->id]);
     }
 }

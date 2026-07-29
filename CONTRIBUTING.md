@@ -1,0 +1,10 @@
+# Contributing
+
+Contributions are welcome. To propose a change:
+
+1. **Fork and branch.** Fork the repository, then create a branch from `master` (for example, `issues/12-short-description`).
+2. **Set up the project.** Follow the installation instructions in [README.md](README.md), configure your local `.env`, and start the development environment with `vendor/bin/sail up -d`. Never commit `.env`, `.env.testing`, credentials, or other local configuration.
+3. **Work within the existing structure.** Application code belongs in [`app/`](app/), routes in [`routes/`](routes/), frontend code in [`resources/`](resources/), database changes in [`database/`](database/), and tests in [`tests/`](tests/). Reuse existing services, repositories, Blade components, factories, and other shared code before introducing new abstractions. Create Laravel classes with the appropriate `vendor/bin/sail artisan make:* --no-interaction` command and add new migrations rather than editing migrations that may already have run.
+4. **Match project conventions.** Follow the style of neighboring files, use explicit PHP parameter and return types, and use descriptive class, method, and variable names. Tests must be PHPUnit classes. Format changed PHP files with `vendor/bin/sail bin pint --dirty --format agent`. If frontend assets change, run `vendor/bin/sail npm run build`.
+5. **Test before submitting.** Add or update tests for every behavioral change, including happy paths, failure paths, and relevant edge cases. Run the smallest affected test first with `vendor/bin/sail artisan test --compact tests/path/to/Test.php`, then run the complete quality suite with `vendor/bin/sail composer run test`. The full suite checks Rector, Peck, Pint, PHPStan, PHPUnit, and the required test coverage. The Husky pre-commit hook runs this suite automatically when enabled.
+6. **Open a pull request.** Push your branch and open a pull request against `master` with a clear description of what changed, why it changed, and how it was tested. Open an issue first for larger changes or changes that affect the project architecture.

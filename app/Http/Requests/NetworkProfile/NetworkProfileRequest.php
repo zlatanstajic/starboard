@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\NetworkProfile;
 
 use App\Http\Requests\Request;
+use Illuminate\Support\Str;
 
 abstract class NetworkProfileRequest extends Request
 {
@@ -47,5 +48,39 @@ abstract class NetworkProfileRequest extends Request
                 'exists:network_tags,id',
             ],
         ];
+    }
+
+    /**
+     * Prepares data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        $merge = [
+            'is_public' => filter_var($this->is_public, FILTER_VALIDATE_BOOLEAN),
+            'is_favorite' => filter_var($this->is_favorite, FILTER_VALIDATE_BOOLEAN),
+        ];
+
+        $username = $this->input('username');
+
+        if ($this->has('username') && is_string($username)) {
+            $merge['username'] = $this->normalizeUsername($username);
+        }
+
+        $this->merge($merge);
+    }
+
+    /**
+     * Normalizes the submitted username by trimming it and stripping a single
+     * leading "@" (the YouTube/TikTok copy-paste form), then trimming again.
+     */
+    private function normalizeUsername(string $username): string
+    {
+        $username = trim($username);
+
+        if (Str::startsWith($username, '@')) {
+            $username = Str::substr($username, 1);
+        }
+
+        return trim($username);
     }
 }

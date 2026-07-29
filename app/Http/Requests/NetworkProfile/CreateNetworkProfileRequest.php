@@ -29,15 +29,4 @@ final class CreateNetworkProfileRequest extends NetworkProfileRequest
 
         return $validatedData;
     }
-
-    /**
-     * Prepares data for validation.
-     */
-    protected function prepareForValidation(): void
-    {
-        $this->merge([
-            'is_public' => filter_var($this->is_public, FILTER_VALIDATE_BOOLEAN),
-            'is_favorite' => filter_var($this->is_favorite, FILTER_VALIDATE_BOOLEAN),
-        ]);
-    }
 }

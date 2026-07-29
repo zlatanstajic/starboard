@@ -216,4 +216,25 @@ class NetworkProfileTest extends TestCase
 
         $this->assertSame('', $profile->profileUrl());
     }
+
+    public function test_profile_url_yields_single_at_for_youtube_and_tiktok_sources(): void
+    {
+        $youtubeSource = new NetworkSource;
+        $youtubeSource->url = 'https://youtube.com/@{username}/videos';
+
+        $youtubeProfile = new NetworkProfile;
+        $youtubeProfile->username = 'MrBeast';
+        $youtubeProfile->setRelation('networkSource', $youtubeSource);
+
+        $this->assertSame('https://youtube.com/@MrBeast/videos', $youtubeProfile->profileUrl());
+
+        $tiktokSource = new NetworkSource;
+        $tiktokSource->url = 'https://tiktok.com/@{username}';
+
+        $tiktokProfile = new NetworkProfile;
+        $tiktokProfile->username = 'MrBeast';
+        $tiktokProfile->setRelation('networkSource', $tiktokSource);
+
+        $this->assertSame('https://tiktok.com/@MrBeast', $tiktokProfile->profileUrl());
+    }
 }

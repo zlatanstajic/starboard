@@ -10,6 +10,34 @@
 
 A modern, centralized platform to track and manage your favorite creators and influencers across multiple social media networks. Monitor profile visits, organize favorites, and maintain a comprehensive directory of creators all in one place.
 
+## Table of Contents
+
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Requirements](#requirements)
+  - [Without Docker](#without-docker)
+  - [With Docker](#with-docker)
+- [Installation](#installation)
+  - [1. Clone the repository](#1-clone-the-repository)
+  - [2. Setup the project](#2-setup-the-project)
+- [Docker](#docker)
+  - [Quick Start](#quick-start)
+  - [Environment Variables](#environment-variables)
+  - [Common Commands](#common-commands)
+  - [Docker File Structure](#docker-file-structure)
+- [Configuration](#configuration)
+  - [Environment Variables](#environment-variables-1)
+- [Usage](#usage)
+  - [Starting the Development Server](#starting-the-development-server)
+- [Testing](#testing)
+  - [Run All Tests](#run-all-tests)
+- [Code Quality](#code-quality)
+  - [Pre-commit Hook](#pre-commit-hook)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
 ## Features
 
 - **Multi-Network Support**: Track creators across multiple social media platforms (Instagram, TikTok, Twitter, YouTube, etc.)
@@ -26,6 +54,10 @@ A modern, centralized platform to track and manage your favorite creators and in
 - **Real-time Updates**: Visit counts update in real-time without page refresh
 - **Pagination**: Browse through profiles with efficient pagination
 
+[⬆ back to top](#table-of-contents)
+
+---
+
 ## Tech Stack
 
 - **Backend**: Laravel 12 with PHP 8.3
@@ -34,6 +66,10 @@ A modern, centralized platform to track and manage your favorite creators and in
 - **Database**: MySQL/MariaDB
 - **Testing**: PHPUnit
 - **Code Quality**: Pint (Laravel code style fixer), PHPStan
+
+[⬆ back to top](#table-of-contents)
+
+---
 
 ## Requirements
 
@@ -48,6 +84,10 @@ A modern, centralized platform to track and manage your favorite creators and in
 
 - Docker 24+
 - Docker Compose v2+
+
+[⬆ back to top](#table-of-contents)
+
+---
 
 ## Installation
 
@@ -73,6 +113,10 @@ This command will:
 - Run database migrations
 - Seed the database with sample data
 - Build frontend assets
+
+[⬆ back to top](#table-of-contents)
+
+---
 
 ## Docker
 
@@ -150,11 +194,19 @@ docker-compose.yml      # Service definitions
 .dockerignore           # Files excluded from the build context
 ```
 
+[⬆ back to top](#table-of-contents)
+
+---
+
 ## Configuration
 
 ### Environment Variables
 
 Key environment variables to configure in `.env`.
+
+[⬆ back to top](#table-of-contents)
+
+---
 
 ## Usage
 
@@ -166,6 +218,10 @@ composer run serve
 
 The application will be available at `http://localhost:8000`
 
+[⬆ back to top](#table-of-contents)
+
+---
+
 ## Testing
 
 ### Run All Tests
@@ -174,12 +230,30 @@ The application will be available at `http://localhost:8000`
 composer run test
 ```
 
+[⬆ back to top](#table-of-contents)
+
+---
+
 ## Code Quality
 
 ### Pre-commit Hook
 
 - A Husky pre-commit hook is present at `.husky/pre-commit` and runs the test suite via `composer run test`. Commits may be blocked if tests fail; run `composer run test` locally to reproduce the check.
 
+[⬆ back to top](#table-of-contents)
+
+---
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to propose a change.
+
+[⬆ back to top](#table-of-contents)
+
+---
+
 ## License
 
 This project is licensed under the MIT License, see the [LICENSE](LICENSE.md) file for details.
+
+[⬆ back to top](#table-of-contents)
