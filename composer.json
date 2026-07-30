@@ -12,7 +12,7 @@
     "keywords": ["laravel", "framework", "starboard", "creator", "content", "aggregator"],
     "license": "proprietary",
     "require": {
-        "php": "8.3.*",
+        "php": "^8.3",
         "laravel/framework": "^13.0",
         "laravel/mcp": "^0.5.9",
         "laravel/tinker": "^3.0",

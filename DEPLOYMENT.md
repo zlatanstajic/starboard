@@ -16,7 +16,8 @@ button spins on "Fetching… 0/N" indefinitely.
 
 ## Prerequisites
 
-- PHP **8.3** (match the app's target; cPanel often exposes it as `ea-php83`).
+- PHP **8.3**, **8.4** or **8.5** (match the app's target; cPanel often exposes
+  these as `ea-php83` / `ea-php84` / `ea-php85`).
 - MySQL database with the `jobs`, `job_batches`, and `failed_jobs` tables
   (created by the default migration) plus the `network_profiles.new_items`
   column migration.

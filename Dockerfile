@@ -1,3 +1,6 @@
+# PHP runtime version for the production stage (8.3, 8.4 or 8.5)
+ARG PHP_VERSION=8.5
+
 # Stage 1: Build frontend assets
 FROM node:22-alpine AS node-builder
 
@@ -26,7 +29,7 @@ COPY . .
 RUN composer dump-autoload --optimize
 
 # Stage 3: Production image
-FROM php:8.3-fpm-alpine AS production
+FROM php:${PHP_VERSION}-fpm-alpine AS production
 
 WORKDIR /var/www/html
 

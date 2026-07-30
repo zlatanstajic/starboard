@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Starboard is a Laravel 13 / PHP 8.3 app for tracking creators across social networks. Server-rendered Blade + Alpine.js + Tailwind, MySQL/MariaDB, PHPUnit. Every domain table is scoped to the authenticated user (multi-tenant).
+Starboard is a Laravel 13 / PHP 8.3–8.5 app for tracking creators across social networks. Server-rendered Blade + Alpine.js + Tailwind, MySQL/MariaDB, PHPUnit. Every domain table is scoped to the authenticated user (multi-tenant).
 
 ## Commands
 
