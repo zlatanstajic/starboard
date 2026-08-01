@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use Illuminate\Http\Request;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 
@@ -21,9 +22,10 @@ abstract class Repository
         string $modelClass,
         array $includes = [],
         array $filters = [],
-        array $sorts = []
+        array $sorts = [],
+        ?Request $request = null,
     ): QueryBuilder {
-        $query = QueryBuilder::for($modelClass);
+        $query = QueryBuilder::for($modelClass, $request);
 
         if (! empty($modelClass::ALLOWED_INCLUDES)) {
             $query->allowedIncludes(

@@ -17,6 +17,7 @@ use Override;
 
 /**
  * @property int $id
+ * @property int $user_id
  * @property string $username
  * @property ?string $youtube_channel_id
  * @property int $number_of_visits
@@ -130,6 +131,12 @@ class NetworkProfile extends Model
     protected static function booted(): void
     {
         static::addGlobalScope(new UserScope);
+
+        static::saving(function (NetworkProfile $networkProfile): void {
+            if ($networkProfile->exists && ($networkProfile->isDirty('username') || $networkProfile->isDirty('network_source_id'))) {
+                $networkProfile->youtube_channel_id = null;
+            }
+        });
     }
 
     /**

@@ -12,4 +12,7 @@ enum DatabaseTableNamesEnum: string
     case network_profiles = 'network_profiles';
     case network_tags = 'network_tags';
     case network_profile_network_tag = 'network_profile_network_tag';
+    case youtube_fetch_batches = 'youtube_fetch_batches';
+    case youtube_fetch_runs = 'youtube_fetch_runs';
+    case youtube_fetch_daily_budgets = 'youtube_fetch_daily_budgets';
 }

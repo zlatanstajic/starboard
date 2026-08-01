@@ -8,6 +8,8 @@ use App\Jobs\FetchYouTubeNewItemsJob;
 use App\Models\NetworkProfile;
 use App\Models\NetworkSource;
 use App\Models\User;
+use App\Models\YouTubeFetchBatch;
+use App\Models\YouTubeFetchDailyBudget;
 use Illuminate\Bus\PendingBatch;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Bus;
@@ -22,6 +24,8 @@ class FetchNewItemsTest extends TestCase
         parent::setUp();
 
         $this->withoutMiddleware(PreventRequestForgery::class);
+        config()->set('youtube.execution_enabled', true);
+        YouTubeFetchDailyBudget::query()->delete();
     }
 
     public function test_fetch_route_dispatches_a_job_for_each_youtube_profile(): void
@@ -53,6 +57,67 @@ class FetchNewItemsTest extends TestCase
         $response->assertRedirect(route('dashboard'));
         Bus::assertBatched(fn (PendingBatch $batch): bool => $batch->jobs->count() === 2
             && $batch->jobs->every(fn ($job): bool => $job instanceof FetchYouTubeNewItemsJob));
+    }
+
+    public function test_fetch_route_refuses_requests_when_execution_is_disabled(): void
+    {
+        config()->set('youtube.execution_enabled', false);
+        Bus::fake();
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->post(route('network-profiles.fetch'))
+            ->assertServiceUnavailable()
+            ->assertSee(__('messages.network_profile.fetch.disabled'));
+
+        Bus::assertNothingBatched();
+    }
+
+    public function test_dashboard_control_requires_both_feature_flags(): void
+    {
+        $user = User::factory()->create();
+
+        config()->set('youtube.ui_enabled', true);
+        $this->actingAs($user)->get(route('dashboard'))->assertSee('aria-live="polite"', false);
+
+        config()->set('youtube.execution_enabled', false);
+        $this->actingAs($user)->get(route('dashboard'))->assertDontSee('aria-live="polite"', false);
+    }
+
+    public function test_dashboard_disables_fetch_when_shared_circuit_is_open(): void
+    {
+        $user = User::factory()->create();
+        config()->set('youtube.ui_enabled', true);
+        YouTubeFetchDailyBudget::query()->create([
+            'budget_date' => now()->utc()->toDateString(),
+            'blocked_until' => now()->addHour(),
+            'block_reason' => 'consent_required',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertSee('disabled', false)
+            ->assertSee(__('messages.network_profile.fetch.circuit_open'));
+    }
+
+    public function test_repeated_dispatch_reconnects_to_one_active_user_batch(): void
+    {
+        Bus::fake();
+        $user = User::factory()->create();
+        $source = NetworkSource::factory()->create([
+            'user_id' => $user->id,
+            'url' => 'https://youtube.com/@{username}/videos',
+        ]);
+        NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $source->id,
+        ]);
+
+        $this->actingAs($user)->post(route('network-profiles.fetch'))->assertRedirect();
+        $this->actingAs($user)->post(route('network-profiles.fetch'))->assertRedirect();
+
+        Bus::assertBatchCount(1);
+        $this->assertSame(1, YouTubeFetchBatch::query()->where('user_id', $user->id)->count());
     }
 
     public function test_new_items_filter_returns_only_profiles_with_new_items(): void

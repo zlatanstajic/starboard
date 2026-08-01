@@ -1450,6 +1450,42 @@ class NetworkProfileRepositoryTest extends TestCase
         $this->assertContains($profileSafe->username, $usernames);
     }
 
+    public function test_youtube_profiles_use_explicit_filters_without_global_request_state(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $source = NetworkSource::factory()->create([
+            'user_id' => $user->id,
+            'url' => 'https://youtube.com/@{username}/videos',
+            'exclude_from_dashboard' => false,
+        ]);
+        $withNewItems = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $source->id,
+            'username' => 'explicit_filter_match_'.uniqid(),
+            'new_items' => 3,
+        ]);
+        $withoutNewItems = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $source->id,
+            'username' => 'explicit_filter_miss_'.uniqid(),
+            'new_items' => 0,
+        ]);
+
+        $this->app->instance('request', Request::create('/', 'GET', [
+            'filter' => ['new_items' => '0'],
+        ]));
+
+        $profiles = $this->repository->getYouTubeVideoProfiles(
+            true,
+            queryParameters: ['filter' => ['new_items' => '1']],
+        );
+        $usernames = $profiles->pluck('username')->all();
+
+        $this->assertContains($withNewItems->username, $usernames);
+        $this->assertNotContains($withoutNewItems->username, $usernames);
+    }
+
     /**
      * Helper to inject query params into the global request
      */

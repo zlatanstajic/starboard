@@ -4,6 +4,68 @@ import Alpine from 'alpinejs';
 
 window.Alpine = Alpine;
 
+window.youtubeFetchControl = ({ active, statusUrl, unavailable, unavailableLabel }) => ({
+    active,
+    statusUrl,
+    unavailable,
+    unavailableLabel,
+    submitting: false,
+    total: 0,
+    processed: 0,
+    failures: 0,
+    pollingFailures: 0,
+    startedAt: Date.now(),
+    timer: null,
+    get busy() {
+        return this.submitting || this.active;
+    },
+    get label() {
+        if (this.unavailable) {
+            return this.unavailableLabel;
+        }
+
+        if (this.busy) {
+            return `${this.processed}/${this.total}`;
+        }
+
+        return 'Fetch';
+    },
+    init() {
+        if (this.active && !this.unavailable) this.schedule(0);
+    },
+    schedule(delay) {
+        clearTimeout(this.timer);
+        this.timer = setTimeout(() => this.poll(), delay);
+    },
+    async poll() {
+        if (Date.now() - this.startedAt > 30 * 60 * 1000) {
+            this.active = false;
+            return;
+        }
+
+        try {
+            const response = await fetch(this.statusUrl, { headers: { Accept: 'application/json' } });
+            if (!response.ok) throw new Error('Polling failed');
+            const data = await response.json();
+            this.pollingFailures = 0;
+            this.total = data.total ?? 0;
+            this.processed = data.processed ?? 0;
+            this.failures = data.failed ?? 0;
+
+            if (!data.active || data.finished) {
+                this.active = false;
+                if (data.finished) window.location.reload();
+                return;
+            }
+
+            this.schedule(2500);
+        } catch (error) {
+            this.pollingFailures += 1;
+            this.schedule(Math.min(30000, 1000 * (2 ** this.pollingFailures)));
+        }
+    },
+});
+
 // TomSelect is loaded via a synchronous CDN <script> in <head>, so it is
 // always available before this module runs (Vite modules are deferred).
 /** @type {typeof import('tom-select').default | undefined} */

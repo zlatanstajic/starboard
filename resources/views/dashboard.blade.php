@@ -106,8 +106,7 @@
                             </select>
                         </div>
 
-                        {{-- New items filter hidden for now (YouTube videos fetch disabled on the frontend). --}}
-                        {{--
+                        @if($youtubeFetchEnabled ?? false)
                         <div class="w-full md:w-1/6">
                             <select onchange="window.location.href=this.value" aria-label="{{ __('messages.network_profile.filter.all_new_items') }}" class="bg-gray-50 border border-gray-300 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                 <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['new_items' => null])]) }}" {{ !request('filter.new_items') ? 'selected' : '' }}>{{ __('messages.network_profile.filter.all_new_items') }}</option>
@@ -115,7 +114,7 @@
                                 <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['new_items' => '0'])]) }}" {{ request('filter.new_items') === '0' ? 'selected' : '' }}>{{ __('messages.network_profile.filter.without_new_items') }}</option>
                             </select>
                         </div>
-                        --}}
+                        @endif
 
                         <div class="w-full md:w-1/6">
                             <select onchange="window.location.href=this.value" aria-label="{{ __('messages.network_profile.filter.all_tags') }}" class="bg-gray-50 border border-gray-300 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
@@ -208,22 +207,14 @@
 
                         <button type="submit"
                                 form="search-form"
-                                class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 transition-colors">
+                            class="inline-flex w-28 items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 transition-colors">
                             {{ __('messages.default.apply') }}
                         </button>
 
-                        <button onclick="window.location.href='{{ request()->url() }}'"
-                            class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700 transition-colors">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                            </svg>
-                            {{ __('messages.default.clear') }}
-                        </button>
                     </div>
 
 
                     <div x-cloak x-show="showFilters" x-transition class="flex flex-col md:flex-row md:items-end gap-4 mb-6">
-
                         <div class="w-full md:w-1/2">
                             @php
                                 $selectedTags = request('filter.tags', []);
@@ -256,6 +247,23 @@
                             </select>
                         </div>
 
+                    </div>
+
+                    <div x-cloak x-show="showFilters" x-transition class="flex flex-nowrap items-center gap-2 mb-6" data-filter-actions>
+                        <x-column-visibility-control />
+
+                        <x-youtube-fetch-control
+                            :youtube-fetch-enabled="$youtubeFetchEnabled ?? false"
+                            :availability="$youtubeFetchAvailability ?? ['circuit_open' => false, 'budget_exhausted' => false]"
+                        />
+
+                        <button onclick="window.location.href='{{ request()->url() }}'"
+                            class="inline-flex w-28 shrink-0 items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700 transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            {{ __('messages.default.clear') }}
+                        </button>
                     </div>
 
                     <x-table-header

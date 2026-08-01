@@ -6,11 +6,16 @@ namespace App\Services;
 
 use App\Jobs\FetchYouTubeNewItemsJob;
 use App\Models\NetworkProfile;
+use App\Models\YouTubeFetchBatch;
+use App\Models\YouTubeFetchRun;
 use App\Repositories\NetworkProfileRepository;
 use Illuminate\Bus\Batch;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Str;
+use LengthException;
 
 class NetworkProfileService
 {
@@ -19,8 +24,6 @@ class NetworkProfileService
      * batch, so profiles aren't all requested from YouTube back-to-back
      * (which makes the traffic look bot-like and risks being blocked).
      */
-    private const int FETCH_STAGGER_SECONDS = 5;
-
     /**
      * Constructs class.
      */
@@ -80,20 +83,24 @@ class NetworkProfileService
      * When $onlyMatchingFilters is true, only profiles matching the current
      * request's dashboard filters are fetched instead of all of them.
      */
-    public function fetchNewItems(bool $onlyMatchingFilters = false): ?Batch
+    public function fetchNewItems(bool $onlyMatchingFilters = false, array $filters = []): ?Batch
     {
-        $jobs = $this->networkProfileRepository->getYouTubeVideoProfiles($onlyMatchingFilters)
-            ->map(fn (NetworkProfile $networkProfile, int $index): FetchYouTubeNewItemsJob => (new FetchYouTubeNewItemsJob($networkProfile))
-                ->delay(Date::now()->addSeconds($index * self::FETCH_STAGGER_SECONDS)))
-            ->all();
+        if (auth()->id() === null) {
+            $jobs = $this->networkProfileRepository->getYouTubeVideoProfiles($onlyMatchingFilters)
+                ->values()
+                ->map(fn (NetworkProfile $profile, int $index): FetchYouTubeNewItemsJob => (new FetchYouTubeNewItemsJob($profile))
+                    ->delay(Date::now()->addSeconds($index * (int) config('youtube.stagger_seconds'))))
+                ->all();
 
-        if ($jobs === []) {
-            return null;
+            return $jobs === [] ? null : Bus::batch($jobs)->name('fetch-new-items')->allowFailures()->dispatch();
         }
 
-        return Bus::batch($jobs)
-            ->name('fetch-new-items')
-            ->dispatch();
+        $userId = (int) auth()->id();
+
+        return Cache::lock("youtube-fetch-batch:user:{$userId}", 15)->block(
+            5,
+            fn (): ?Batch => $this->dispatchAuthenticatedFetch($userId, $onlyMatchingFilters, $filters),
+        );
     }
 
     /**
@@ -103,5 +110,63 @@ class NetworkProfileService
     {
         return (int) $this->networkProfileRepository->getYouTubeVideoProfiles()
             ->sum('new_items');
+    }
+
+    /** @param array<string, mixed> $filters */
+    private function dispatchAuthenticatedFetch(int $userId, bool $onlyMatchingFilters, array $filters): ?Batch
+    {
+        $active = YouTubeFetchBatch::query()->where('user_id', $userId)->whereIn('state', ['preparing', 'active'])->latest()->first();
+
+        if ($active?->laravel_batch_id !== null) {
+            $existingBatch = Bus::findBatch($active->laravel_batch_id);
+
+            if ($existingBatch !== null && ! $existingBatch->finished() && ! $existingBatch->cancelled()) {
+                return $existingBatch;
+            }
+
+            $active->update([
+                'state' => $existingBatch?->cancelled() ? 'canceled' : 'finished',
+                'finished_at' => now(),
+            ]);
+        }
+
+        $limit = (int) config('youtube.batch_limit');
+        $profiles = $this->networkProfileRepository->getYouTubeVideoProfiles($onlyMatchingFilters, $limit + 1, $filters)->collect();
+
+        throw_if($profiles->count() > $limit, LengthException::class, 'The filtered YouTube profile selection exceeds the configured batch limit.');
+
+        if ($profiles->isEmpty()) {
+            return null;
+        }
+
+        $auditBatch = YouTubeFetchBatch::query()->create([
+            'user_id' => $userId,
+            'filters' => $filters,
+            'state' => 'preparing',
+            'total' => $profiles->count(),
+            'started_at' => now(),
+        ]);
+        $jobs = $profiles->values()->map(function (NetworkProfile $profile, int $index) use ($auditBatch, $userId): FetchYouTubeNewItemsJob {
+            $uuid = (string) Str::uuid();
+            YouTubeFetchRun::query()->create([
+                'uuid' => $uuid,
+                'youtube_fetch_batch_id' => $auditBatch->id,
+                'network_profile_id' => $profile->id,
+                'user_id' => $userId,
+                'stage' => 'queued',
+            ]);
+
+            return (new FetchYouTubeNewItemsJob((int) $profile->id, $userId, $uuid))
+                ->delay(Date::now()->addSeconds($index * (int) config('youtube.stagger_seconds')));
+        })->all();
+
+        $batch = Bus::batch($jobs)
+            ->name('fetch-new-items')
+            ->allowFailures()
+            ->dispatch();
+
+        $auditBatch->update(['laravel_batch_id' => $batch->id, 'state' => 'active']);
+
+        return $batch;
     }
 }

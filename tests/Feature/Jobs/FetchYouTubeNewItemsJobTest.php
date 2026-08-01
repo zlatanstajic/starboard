@@ -8,9 +8,11 @@ use App\Jobs\FetchYouTubeNewItemsJob;
 use App\Models\NetworkProfile;
 use App\Models\NetworkSource;
 use App\Models\User;
+use App\Models\YouTubeFetchDailyBudget;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Override;
 use Tests\TestCase;
 
 class FetchYouTubeNewItemsJobTest extends TestCase
@@ -19,6 +21,15 @@ class FetchYouTubeNewItemsJobTest extends TestCase
      * The channel id embedded in the channel-page fixture's canonical link.
      */
     private const string CHANNEL_ID = 'UC_x5XG1OV2P6uZZ5FSM9Ttw';
+
+    #[Override]
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('youtube.execution_enabled', true);
+        YouTubeFetchDailyBudget::query()->delete();
+    }
 
     public function test_counts_videos_published_at_or_after_last_visit(): void
     {

@@ -8,9 +8,11 @@ use App\Exceptions\NetworkProfile\NetworkProfileDuplicationException;
 use App\Models\NetworkProfile;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\LazyCollection;
 use Spatie\QueryBuilder\AllowedFilter;
+use Spatie\QueryBuilder\QueryBuilder;
 
 class NetworkProfileRepository extends Repository
 {
@@ -25,10 +27,7 @@ class NetworkProfileRepository extends Repository
         ],
         string $defaultSort = 'last_visit_at'
     ): LengthAwarePaginator {
-        $query = $this->buildStandardQuery(
-            NetworkProfile::class,
-            filters: $this->additionalAllowedFilters()
-        )
+        $query = $this->dashboardQuery()
             ->defaultSort($defaultSort);
 
         // If no specific network source was selected (i.e. "All Network Sources"),
@@ -89,13 +88,13 @@ class NetworkProfileRepository extends Repository
      *
      * @return LazyCollection<int, NetworkProfile>
      */
-    public function getYouTubeVideoProfiles(bool $onlyMatchingFilters = false): LazyCollection
+    public function getYouTubeVideoProfiles(bool $onlyMatchingFilters = false, ?int $limit = null, array $queryParameters = []): LazyCollection
     {
         $query = $onlyMatchingFilters
-            ? $this->buildStandardQuery(NetworkProfile::class, filters: $this->additionalAllowedFilters())
+            ? $this->dashboardQuery($queryParameters)
             : NetworkProfile::query();
 
-        return $query
+        $query
             ->whereHas('networkSource', function (Builder $query): void {
                 $query->withoutGlobalScopes()
                     ->where(function (Builder $q): void {
@@ -103,8 +102,19 @@ class NetworkProfileRepository extends Repository
                             ->orWhere('url', 'like', 'https://www.youtube.com/%/videos%');
                     });
             })
-            ->with('networkSource')
-            ->cursor();
+            ->with('networkSource');
+
+        if ($onlyMatchingFilters && ! data_get($queryParameters, 'filter.network_source_id')) {
+            $query->whereHas('networkSource', function (Builder $sourceQuery): void {
+                $sourceQuery->withoutGlobalScopes()->where('exclude_from_dashboard', false);
+            });
+        }
+
+        if ($limit !== null) {
+            $query->limit($limit);
+        }
+
+        return $query->cursor();
     }
 
     /**
@@ -119,6 +129,20 @@ class NetworkProfileRepository extends Repository
         ]);
 
         return $networkProfile;
+    }
+
+    /** @param array<string, mixed>|null $queryParameters */
+    private function dashboardQuery(?array $queryParameters = null): QueryBuilder
+    {
+        $queryRequest = $queryParameters === null
+            ? null
+            : Request::create('/', 'GET', $queryParameters);
+
+        return $this->buildStandardQuery(
+            NetworkProfile::class,
+            filters: $this->additionalAllowedFilters(),
+            request: $queryRequest,
+        );
     }
 
     /**

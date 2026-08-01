@@ -28,6 +28,8 @@ class NetworkProfileControllerTest extends TestCase
 
         // Disable only CSRF so requests can be made without tokens but keep route bindings
         $this->withoutMiddleware(PreventRequestForgery::class);
+        config()->set('youtube.execution_enabled', true);
+        config()->set('youtube.ui_enabled', true);
     }
 
     /**
@@ -111,6 +113,15 @@ class NetworkProfileControllerTest extends TestCase
         // The Columns control label and the readable "row number" checkbox label render.
         $response->assertSee(__('messages.default.columns'), false);
         $response->assertSee(__('messages.default.row_number'), false);
+
+        // Columns and Fetch are rendered in the filters-only actions row.
+        $response->assertSeeInOrder([
+            'data-filter-actions',
+            __('messages.default.columns'),
+            'x-show="!busy"',
+            __('messages.default.fetch'),
+            __('messages.default.clear'),
+        ], false);
 
         // The localStorage persistence key is seeded on the root Alpine scope.
         $response->assertSee('dashboard_columns', false);

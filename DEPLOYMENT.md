@@ -1,143 +1,126 @@
 # Deployment (cPanel)
 
-This guide covers deploying the application to cPanel shared hosting, with
-emphasis on the background **Fetch** feature (YouTube "new items" check), which
-relies on queued jobs and therefore requires a cron-driven queue worker.
-
-## Overview
-
-The Fetch button dispatches a **batch of queued jobs** (`QUEUE_CONNECTION=database`).
-Jobs are only inserted into the database — a worker process must consume them.
-On shared cPanel you cannot run a persistent `queue:work` daemon, so a **cron
-job** drives the worker instead.
-
-Without a running worker, clicking Fetch queues jobs that never execute and the
-button spins on "Fetching… 0/N" indefinitely.
+This application uses Laravel's database queue for background work. The YouTube
+fetch feature is guarded by separate execution and UI flags; both are disabled
+by default and must remain disabled during the initial deployment.
 
 ## Prerequisites
 
-- PHP **8.3**, **8.4** or **8.5** (match the app's target; cPanel often exposes
-  these as `ea-php83` / `ea-php84` / `ea-php85`).
-- MySQL database with the `jobs`, `job_batches`, and `failed_jobs` tables
-  (created by the default migration) plus the `network_profiles.new_items`
-  column migration.
-- `SESSION_DRIVER` set to a persistent driver (`database`, `file`, or `cookie`)
-  — **not** `array`. The fetch batch id is stored in the session and read back
-  by the polling endpoint.
-- Outbound HTTPS (port 443) to `youtube.com` allowed from the server.
+- PHP 8.3 with the application-required extensions, including SimpleXML.
+- A non-`array` session driver so fetch batch ownership survives requests.
+- A supported queue connection and a worker capable of consuming the dedicated
+  `youtube` queue.
+- Outbound HTTPS access from the deployment host. Do not assume it works until
+  the operator-only probe succeeds from production egress.
 
-Resolve the correct PHP binary and app path once, over SSH, and reuse them below:
+## Deploy code, schema, and assets
 
-```bash
-which php          # or: which ea-php83  -> e.g. /usr/local/bin/ea-php83
-pwd                # your app root, e.g. /home/USER/APP_PATH
-```
+1. Back up the database.
+2. Deploy the application with these rollout gates disabled:
 
-## 1. Deploy the code and assets
+   ```dotenv
+   YOUTUBE_FETCH_ENABLED=false
+   YOUTUBE_FETCH_UI_ENABLED=false
+   YOUTUBE_FETCH_TRANSPORT=laravel-http
+   YOUTUBE_FETCH_QUEUE=youtube
+   ```
 
-1. Upload / pull the application code to the app root.
-2. Install PHP dependencies:
+3. Install PHP dependencies without changing the lock file:
+
    ```bash
    composer install --no-dev --optimize-autoloader
    ```
-3. Build front-end assets. cPanel usually has no Node, so **build locally or in
-   CI and upload** the generated `public/build/` directory:
-   ```bash
-   npm ci && npm run build
-   ```
-   The Fetch spinner and disabled-button styles only exist in a fresh build.
 
-## 2. Environment and migrations
+4. Run migrations. In addition to Laravel's queue tables, this creates
+   `youtube_fetch_batches`, `youtube_fetch_runs`, and
+   `youtube_fetch_daily_budgets`:
 
-1. Ensure `.env` on production has at least:
-   ```
-   APP_ENV=production
-   APP_DEBUG=false
-   QUEUE_CONNECTION=database
-   SESSION_DRIVER=database
-   ```
-2. Run migrations (adds `new_items` and the queue/batch tables if missing):
    ```bash
    php artisan migrate --force
    ```
 
-## 3. Rebuild caches
+5. Build assets locally or in CI and deploy `public/build/`:
 
-The new `network-profiles.fetch.status` route must be present in the route
-cache, so always rebuild caches after a deploy:
+   ```bash
+   npm ci
+   npm run build
+   ```
 
-```bash
-php artisan config:clear && php artisan route:clear && php artisan view:clear
-php artisan config:cache && php artisan route:cache && php artisan view:cache
+6. Rebuild configuration, route, and view caches, then restart workers:
+
+   ```bash
+   php artisan optimize:clear
+   php artisan optimize
+   php artisan queue:restart
+   ```
+
+## Queue worker
+
+The YouTube worker must explicitly consume the configured queue. A cPanel cron
+that drains it once per minute can use:
+
+```cron
+* * * * * /usr/local/bin/ea-php83 /home/USER/APP_PATH/artisan queue:work database --queue=youtube --stop-when-empty --max-time=55 >> /dev/null 2>&1
 ```
 
-## 4. Cron job for the queue worker (required)
+For a persistent process manager, use the same `--queue=youtube` selection and
+restart it after every deployment. The selected connection's `retry_after` must
+always be greater than `YOUTUBE_FETCH_JOB_TIMEOUT`; the shipped database,
+Beanstalkd, and Redis configuration enforces at least a 15-second margin.
 
-Add the cron entry in cPanel → **Cron Jobs**. Choose **one** of the two
-approaches below. Replace the PHP binary path and app path with your own.
+Keep the ordinary application queue worker running separately if it handles
+other queues.
 
-### Option A — Direct worker cron (simplest)
+## Rollout order
 
-Runs the worker every minute; it drains the queue and exits.
+1. Back up the database and deploy migrations/code with both flags disabled.
+2. Run the complete offline test suite and build assets.
+3. Restart workers and verify the dedicated `youtube` queue is consumed.
+4. From the production egress host, run the confirmed probe documented in
+   `docs/YOUTUBE_FETCH_RUNBOOK.md` for one owned profile.
+5. Enable execution only, clear config cache, restart workers, and fetch one
+   canary profile through an operator-controlled path.
+6. Verify audit rows, physical request accounting, cached channel-ID reuse, and
+   unchanged `new_items` values on failures.
+7. Run one small filtered batch.
+8. Enable the UI flag, rebuild configuration cache, and monitor classified
+   outcomes before increasing the batch limit.
 
-```
-* * * * * /usr/local/bin/ea-php83 /home/USER/APP_PATH/artisan queue:work --stop-when-empty --max-time=55 >> /dev/null 2>&1
-```
+The dashboard does not promise that every processed profile succeeded. It polls
+an owned batch and reports terminal outcome counts. The control appears only
+when both flags are enabled and is disabled while the shared cooldown is open or
+the UTC daily request budget is exhausted.
 
-- `--stop-when-empty` — the worker exits once the queue is empty.
-- `--max-time=55` — hard stop before the next minute so runs never overlap/stack.
+## Rollback
 
-### Option B — Scheduler cron (recommended if you have other periodic tasks)
+1. Set `YOUTUBE_FETCH_ENABLED=false` and `YOUTUBE_FETCH_UI_ENABLED=false`.
+2. Clear/rebuild configuration cache and restart queue workers. Every queued or
+   released job re-checks the execution flag before reserving a request.
+3. Pause the dedicated `youtube` worker and cancel active Laravel batches if
+   necessary.
+4. Revert transport selection independently. Only `laravel-http` is currently
+   supported; unknown values fail closed.
+5. Retain audit tables during an application rollback. If schema rollback is
+   required, back up first and use the reversible migrations.
 
-A single system cron drives Laravel's scheduler; the queue worker (and any
-future scheduled task) is declared in `routes/console.php`.
+Rollback must not clear stored `youtube_channel_id` values or existing
+`new_items` counts.
 
-System cron entry:
+## Retention and pruning
 
-```
-* * * * * /usr/local/bin/ea-php83 /home/USER/APP_PATH/artisan schedule:run >> /dev/null 2>&1
-```
-
-Schedule definition in `routes/console.php`:
-
-```php
-use Illuminate\Support\Facades\Schedule;
-
-Schedule::command('queue:work --stop-when-empty --max-time=55')
-    ->everyMinute()
-    ->withoutOverlapping();
-```
-
-`schedule:run` reads `routes/console.php` each minute and runs whatever is due.
-`routes/console.php` never runs on its own — the cron is what triggers it.
-
-> Use Option A **or** Option B, not both. Both require a per-minute system cron.
-
-## 5. Verify
-
-Over SSH:
-
-```bash
-# Outbound access to YouTube works
-curl -I https://youtube.com/@youtube/videos
-
-# Manually drain the queue once and watch it process
-php artisan queue:work --stop-when-empty
-
-# Inspect queue state
-php artisan queue:failed
-```
-
-In the app: click **Fetch**, confirm the "Fetch started" alert, the button
-shows "Fetching… X/Y", and on completion a "Fetch complete — N new items found"
-alert appears after the page reloads.
+Laravel batch rows and YouTube audit rows grow over time. Schedule Laravel batch
+pruning and an operator-approved retention policy for terminal
+`youtube_fetch_batches`/`youtube_fetch_runs`. Never prune active/retrying runs or
+the current UTC budget row. Export audit data first when retention requirements
+demand it. See the runbook for example read-only queries.
 
 ## Troubleshooting
 
-| Symptom | Likely cause |
+| Symptom | Check |
 |---|---|
-| Button stuck on "Fetching… 0/N" forever | No queue worker running — cron missing or wrong PHP binary/app path. |
-| Fetch completes but counts never change | Outbound HTTPS to `youtube.com` blocked, or YouTube returned a non-OK response (check `storage/logs/laravel.log` for `FetchYouTubeNewItemsJob` warnings). |
-| "Fetch complete" alert never shows / no progress updates | `SESSION_DRIVER=array`, or the `fetch.status` route isn't cached (rerun step 3). |
-| Spinner/disabled button styling missing | `public/build/` not rebuilt/uploaded (step 1.3). |
-| Jobs pile up in `failed_jobs` | Worker PHP version mismatch, or `job_batches` table missing (rerun step 2). |
+| Control is absent | Both execution and UI flags, cached configuration, rebuilt assets. |
+| Control is disabled | UTC budget row: `blocked_until` and `reserved_requests`. |
+| Batch remains pending | Dedicated worker queue name, cron path/PHP binary, and `jobs` rows. |
+| Counts do not change | Classified run outcome; malformed/blocked/error responses intentionally preserve the previous count. |
+| Jobs fail repeatedly | `failed_jobs`, worker timeout, and `retry_after > job timeout`. |
+| Polling loses a batch | Session persistence and matching `youtube_fetch_batches.user_id`. |

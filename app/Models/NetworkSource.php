@@ -60,6 +60,14 @@ class NetworkSource extends Model
             }
         });
 
+        static::updated(function (NetworkSource $networkSource): void {
+            if ($networkSource->wasChanged('url')) {
+                NetworkProfile::query()->withoutGlobalScopes()
+                    ->where('network_source_id', $networkSource->id)
+                    ->update(['youtube_channel_id' => null]);
+            }
+        });
+
         static::deleted(function (NetworkSource $networkSource): void {
             $networkSource->networkProfiles()->delete();
         });

@@ -7,18 +7,21 @@ namespace App\Http\Controllers;
 use App\Exceptions\NetworkProfile\NetworkProfileDeletionFailedException;
 use App\Http\Requests\NetworkProfile\CreateNetworkProfileRequest;
 use App\Http\Requests\NetworkProfile\DeleteNetworkProfileRequest;
+use App\Http\Requests\NetworkProfile\FetchYouTubeProfilesRequest;
 use App\Http\Requests\NetworkProfile\UpdateNetworkProfileRequest;
 use App\Models\NetworkProfile;
+use App\Models\YouTubeFetchBatch;
 use App\Services\NetworkProfileService;
 use App\Services\NetworkSourceService;
 use App\Services\NetworkTagService;
+use App\Services\YouTube\YouTubeRequestBudget;
 use Exception;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
 use RealRashid\SweetAlert\Facades\Alert;
+use Symfony\Component\HttpFoundation\Response;
 
 class NetworkProfileController extends Controller
 {
@@ -28,7 +31,8 @@ class NetworkProfileController extends Controller
     public function __construct(
         private readonly NetworkProfileService $networkProfileService,
         private readonly NetworkSourceService $networkSourceService,
-        private readonly NetworkTagService $networkTagService
+        private readonly NetworkTagService $networkTagService,
+        private readonly YouTubeRequestBudget $youtubeRequestBudget,
     ) {
         //
     }
@@ -42,9 +46,11 @@ class NetworkProfileController extends Controller
             $networkSources = $this->networkSourceService->getAll();
             $networkTags = $this->networkTagService->getAll();
             $networkProfiles = $this->networkProfileService->getAll();
+            $youtubeFetchEnabled = (bool) config('youtube.execution_enabled') && (bool) config('youtube.ui_enabled');
+            $youtubeFetchAvailability = $this->youtubeRequestBudget->availability();
 
             return $this->handleView(
-                compact('networkSources', 'networkProfiles', 'networkTags')
+                compact('networkSources', 'networkProfiles', 'networkTags', 'youtubeFetchEnabled', 'youtubeFetchAvailability')
             );
         } catch (Exception $e) {
             $this->handleException($e);
@@ -128,10 +134,14 @@ class NetworkProfileController extends Controller
      * filters. Redirects back to the current dashboard URL, preserving the
      * active query string.
      */
-    public function fetch(Request $request): RedirectResponse
+    public function fetch(FetchYouTubeProfilesRequest $request): RedirectResponse|Response
     {
+        if (! config('youtube.execution_enabled')) {
+            return response(__('messages.network_profile.fetch.disabled'), Response::HTTP_SERVICE_UNAVAILABLE);
+        }
+
         try {
-            $batch = $this->networkProfileService->fetchNewItems(true);
+            $batch = $this->networkProfileService->fetchNewItems(true, $request->validated());
 
             if ($batch === null) {
                 Alert::info(
@@ -156,6 +166,10 @@ class NetworkProfileController extends Controller
      */
     public function fetchStatus(): JsonResponse
     {
+        if (! config('youtube.execution_enabled')) {
+            return response()->json(['active' => false, 'disabled' => true], Response::HTTP_SERVICE_UNAVAILABLE);
+        }
+
         $batchId = session('fetch_batch_id');
 
         if (! is_string($batchId) || $batchId === '') {
@@ -163,22 +177,35 @@ class NetworkProfileController extends Controller
         }
 
         $batch = Bus::findBatch($batchId);
+        $auditBatch = YouTubeFetchBatch::query()
+            ->where('user_id', auth()->id())
+            ->where('laravel_batch_id', $batchId)
+            ->first();
 
-        if ($batch === null) {
+        if ($batch === null || $auditBatch === null) {
             session()->forget('fetch_batch_id');
 
             return response()->json(['active' => false]);
         }
 
-        if ($batch->finished()) {
+        $finished = $batch->finished() || $batch->cancelled();
+        $outcomes = $auditBatch->runs()->whereNotNull('outcome')->selectRaw('outcome, COUNT(*) as aggregate')->groupBy('outcome')->pluck('aggregate', 'outcome');
+
+        if ($finished) {
+            $auditBatch->update(['state' => $batch->cancelled() ? 'canceled' : 'finished', 'finished_at' => now()]);
             session()->forget('fetch_batch_id');
         }
 
         return response()->json([
             'active' => true,
-            'finished' => $batch->finished(),
+            'finished' => $finished,
+            'canceled' => $batch->cancelled(),
             'total' => $batch->totalJobs,
             'processed' => $batch->processedJobs(),
+            'pending' => $batch->pendingJobs,
+            'failed' => $batch->failedJobs,
+            'retrying' => (int) ($outcomes['retrying'] ?? 0),
+            'outcomes' => $outcomes,
             'progress' => $batch->progress(),
         ]);
     }

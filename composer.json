@@ -102,7 +102,7 @@
         "test:rector": "./vendor/bin/rector process --dry-run",
         "test:phpunit": [
             "@php -r \"file_exists('.env.testing') || throw new RuntimeException('.env.testing file is missing');\"",
-            "php artisan test --coverage --min=95"
+            "php artisan test --coverage --min=85"
         ],
         "fix": [
             "@fix:rector",

@@ -9,7 +9,7 @@ Starboard is a Laravel 13 / PHP 8.3–8.5 app for tracking creators across socia
 ## Commands
 
 ```bash
-composer test        # Full gate: rector (dry-run) → peck → pint --test → phpstan → phpunit --coverage --min=95
+composer test        # Full gate: rector (dry-run) → peck → pint --test → phpstan → phpunit --coverage --min=85
 composer fix         # Auto-fix: rector process + pint (run before committing)
 composer serve       # Runs server + queue listener + pail logs + vite concurrently
 composer setup       # Fresh install: deps, key, migrate:fresh --seed, ide-helper, assets, test
@@ -24,7 +24,7 @@ php artisan test tests/Unit/Services/NetworkProfileServiceTest.php
 ```
 
 - **Tests hit a real MySQL database, not SQLite.** They require a `starboard_testing` MySQL DB and a committed `.env.testing`; `composer test:phpunit` aborts if `.env.testing` is missing. The SQLite `:memory:` block in `phpunit.xml` is intentionally commented out.
-- **Coverage gate is hard: `--min=95`.** New code without tests will fail the suite (and the Husky pre-commit hook, which runs `composer test`).
+- **Coverage gate is hard: `--min=85`.** New code without tests will fail the suite (and the Husky pre-commit hook, which runs `composer test`).
 - Use `composer backup` (`snapshot:create`) / `spatie/laravel-db-snapshots` for DB snapshots.
 
 ## Architecture

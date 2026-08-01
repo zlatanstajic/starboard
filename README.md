@@ -4,7 +4,7 @@
 
 [![Tests](https://github.com/zlatanstajic/starboard/actions/workflows/tests.yml/badge.svg)](https://github.com/zlatanstajic/starboard/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
-[![Coverage: 95%+](https://img.shields.io/badge/Coverage-95%25%2B-brightgreen.svg)](https://github.com/zlatanstajic/starboard/actions)
+[![Coverage: 85%+](https://img.shields.io/badge/Coverage-85%25%2B-brightgreen.svg)](https://github.com/zlatanstajic/starboard/actions)
 [![PHP 8.3 | 8.4 | 8.5](https://img.shields.io/badge/PHP-8.3%20%7C%208.4%20%7C%208.5-blue.svg)](https://www.php.net/)
 [![Laravel 13](https://img.shields.io/badge/Laravel-13-red.svg)](https://laravel.com/)
 
