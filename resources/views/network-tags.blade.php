@@ -40,7 +40,7 @@
                                     <th scope="col" class="px-6 py-3">{{ __('messages.default.description') }}</th>
                                     <th scope="col" class="px-6 py-3">{{ __('messages.network_source.network_profiles_count') }}</th>
                                     <th scope="col" class="px-2 py-3" title="{{ __('messages.default.timestamps_title') }}">{{ __('messages.default.timestamps') }}</th>
-                                    <th scope="col" class="px-6 py-3">{{ __('messages.default.actions') }}</th>
+                                    <th scope="col" class="px-6 py-3 text-right">{{ __('messages.default.actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -68,8 +68,8 @@
                                         >
                                             {{ $tag->created_at_short }} / {{ $tag->updated_at_short }}
                                         </td>
-                                        <td class="px-6 py-4 text-center">
-                                            <div class="flex justify-center gap-2">
+                                        <td class="px-6 py-4 text-right">
+                                            <div class="flex justify-end gap-2">
 
                                                 <x-edit-button
                                                     event-name="open-edit-tag-modal"

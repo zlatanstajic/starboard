@@ -36,7 +36,7 @@
                                     <th scope="col" class="px-9 py-3" title="{{ __('messages.network_source.exclude_from_dashboard') }}">{{ __('messages.default.status') }}</th>
                                     <th scope="col" class="px-6 py-3">{{ __('messages.network_source.network_profiles_count') }}</th>
                                     <th scope="col" class="px-2 py-3" title="{{ __('messages.default.timestamps_title') }}">{{ __('messages.default.timestamps') }}</th>
-                                    <th scope="col" class="px-6 py-3">{{ __('messages.default.actions') }}</th>
+                                    <th scope="col" class="px-6 py-3 text-right">{{ __('messages.default.actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -45,7 +45,7 @@
                                         <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{{ $networkSources->firstItem() + $loop->index }}</td>
                                         <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
                                             <a href="{{ route('dashboard', ['filter' => ['network_source_id' => $source->id]]) }}" class="inline-flex items-center text-indigo-600 hover:underline">
-                                                <x-source-icon :slug="$source->icon" :title="$source->name" class="w-4 h-4 mr-2" />
+                                                <x-source-icon :slug="$source->icon" :title="$source->name" :fallback="true" class="w-4 h-4 mr-2" />
                                                 {{ Str::limit($source->name, 30, '...') }}
                                             </a>
                                         </td>
@@ -68,8 +68,8 @@
                                         >
                                             {{ $source->created_at_short }} / {{ $source->updated_at_short }}
                                         </td>
-                                        <td class="px-6 py-4 text-center">
-                                            <div class="flex justify-center gap-2">
+                                        <td class="px-6 py-4 text-right">
+                                            <div class="flex justify-end gap-2">
 
                                                 <x-edit-button
                                                     event-name="open-edit-source-modal"

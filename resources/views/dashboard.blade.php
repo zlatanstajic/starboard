@@ -208,16 +208,8 @@
 
                         <button type="submit"
                                 form="search-form"
-                                class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 transition-colors">
+                                class="inline-flex w-28 items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 transition-colors">
                             {{ __('messages.default.apply') }}
-                        </button>
-
-                        <button onclick="window.location.href='{{ request()->url() }}'"
-                            class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700 transition-colors">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                            </svg>
-                            {{ __('messages.default.clear') }}
                         </button>
                     </div>
 
@@ -258,6 +250,18 @@
 
                     </div>
 
+                    <div x-cloak x-show="showFilters" x-transition class="flex flex-nowrap items-center gap-2 mb-6" data-filter-actions>
+                        <x-column-visibility-control />
+
+                        <button onclick="window.location.href='{{ request()->url() }}'"
+                            class="inline-flex w-28 shrink-0 items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700 transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            {{ __('messages.default.clear') }}
+                        </button>
+                    </div>
+
                     <x-table-header
                         :title="__('messages.network_profile.page_name_title') . ' (' . __('messages.default.total_count_suffix', ['count' => $networkProfiles->total()]) . ')'"
                         :show-filters-toggle="true"
@@ -276,7 +280,7 @@
                                     <th scope="col" class="px-6 py-3 text-center" title="{{ __('messages.default.favorite') }}" data-col="favorite" x-show="columns.favorite">{{ __('messages.default.favorite_short') }}</th>
                                     <th scope="col" class="px-3 py-2 w-20 md:w-24 text-center text-xs" title="{{ __('messages.network_profile.visits_title') }}" data-col="visits" x-show="columns.visits">{{ __('messages.default.visits') }}</th>
                                     <th scope="col" class="px-3 py-2 w-28 text-center text-xs" title="{{ __('messages.default.timestamps_title') }}" data-col="timestamps" x-show="columns.timestamps">{{ __('messages.default.timestamps') }}</th>
-                                    <th scope="col" class="px-6 py-3 text-center" data-col="actions" x-show="columns.actions">{{ __('messages.default.actions') }}</th>
+                                    <th scope="col" class="px-6 py-3 text-right" data-col="actions" x-show="columns.actions">{{ __('messages.default.actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -346,8 +350,8 @@
                                         >
                                             {{ $profile->created_at_short }} / {{ $profile->updated_at_short }}
                                         </td>
-                                        <td class="px-6 py-4 text-center" data-col="actions" x-show="columns.actions">
-                                            <div class="flex justify-center gap-2">
+                                        <td class="px-6 py-4 text-right" data-col="actions" x-show="columns.actions">
+                                            <div class="flex justify-end gap-2">
                                                 <x-edit-button
                                                     event-name="open-edit-profile-modal"
                                                     :payload="[

@@ -100,6 +100,32 @@ class NetworkSourceControllerTest extends TestCase
         $response->assertViewHas('networkSources', $paginator);
     }
 
+    public function test_index_displays_default_icon_for_source_without_icon(): void
+    {
+        $source = NetworkSource::factory()->make([
+            'id' => 1,
+            'user_id' => $this->user->id,
+            'name' => 'IMDB List',
+            'url' => 'https://www.imdb.com/list/{id}',
+            'icon' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $source->network_profiles_count = 0;
+
+        $paginator = new LengthAwarePaginator([$source], 1, 15);
+
+        $this->serviceMock
+            ->shouldReceive('getAll')
+            ->once()
+            ->andReturn($paginator);
+
+        $response = $this->get(route('network-sources.index'));
+
+        $response->assertOk();
+        $response->assertSee('fill="currentColor"', false);
+    }
+
     public function test_destroy_successfully_deletes_and_redirects(): void
     {
         $source = NetworkSource::factory()->create(['user_id' => $this->user->id]);
