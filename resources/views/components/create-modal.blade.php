@@ -27,12 +27,12 @@
 
             <div class="flex justify-end gap-3 mt-6">
                 <button type="button" @click="createOpen = false"
-                        class="inline-flex w-28 justify-center px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg hover:bg-gray-200 transition-colors hover:text-black"
+                        class="inline-flex justify-center px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg hover:bg-gray-200 transition-colors hover:text-black"
                 >
                     {{ __('messages.default.cancel') }}
                 </button>
                 <button type="submit"
-                        class="inline-flex w-28 justify-center px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors">
+                        class="inline-flex justify-center px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors">
                     {{ $submitText ?? __('messages.default.create') }}
                 </button>
             </div>

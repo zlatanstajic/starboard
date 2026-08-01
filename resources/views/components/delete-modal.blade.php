@@ -36,7 +36,7 @@
         <div class="flex justify-center gap-3">
             <button type="button"
                     @click="deleteOpen = false"
-                    class="inline-flex w-28 justify-center px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    class="inline-flex justify-center px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
                 {{ __('messages.default.cancel') }}
             </button>
@@ -45,7 +45,7 @@
                 @csrf
                 @method('DELETE')
                 <button type="submit"
-                        class="inline-flex w-28 justify-center px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
+                        class="inline-flex justify-center px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
                     {{ __('messages.default.confirm') }}
                 </button>
             </form>
