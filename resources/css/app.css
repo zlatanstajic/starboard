@@ -50,6 +50,10 @@ tbody tr.selected td {
     border: 1px solid #6b7280;
 }
 
+[data-tag-filter] .ts-control {
+    min-height: 2.625rem;
+}
+
 .ts-control .item {
     background-color: inherit;
     color: inherit;

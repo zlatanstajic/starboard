@@ -45,7 +45,7 @@ A modern, centralized platform to track and manage your favorite creators and in
 - **Visit Tracking**: Automatically track and log visits to creator profiles
 - **Favorites System**: Mark profiles as favorites for quick access
 - **Privacy Control**: Set profiles as public or private
-- **Advanced Filtering**: Filter by network source, visit count, last visit date, status, and favorites
+- **Advanced Filtering**: Filter by network source, visit count, last visit date, status, and favorites; the network source filter lists each platform with its brand icon
 - **Smart Sorting**: Sort by username, visits, last visit date, creation date, and update date
 - **Search Functionality**: Quick search for specific creator usernames
 - **Customizable Columns**: Show or hide dashboard table columns via a multiselect in the filters section; all columns are shown by default and your selection is saved in the browser (localStorage) across visits

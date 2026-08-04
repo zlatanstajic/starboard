@@ -72,8 +72,7 @@ abstract class NetworkProfileRequest extends Request
     }
 
     /**
-     * Normalizes the submitted username by trimming it and stripping a single
-     * leading "@" (the YouTube/TikTok copy-paste form), then trimming again.
+     * Normalize the submitted username before validation.
      */
     private function normalizeUsername(string $username): string
     {
@@ -81,6 +80,16 @@ abstract class NetworkProfileRequest extends Request
 
         if (Str::startsWith($username, '@')) {
             $username = Str::substr($username, 1);
+        } else {
+            $lowercaseUsername = Str::lower($username);
+
+            foreach (['https://', 'http://'] as $prefix) {
+                if (Str::startsWith($lowercaseUsername, $prefix)) {
+                    $username = Str::substr($username, Str::length($prefix));
+
+                    break;
+                }
+            }
         }
 
         return trim($username);

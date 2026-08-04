@@ -4,15 +4,67 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Illuminate\Database\Query\Builder as DatabaseBuilder;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 
 abstract class Repository
 {
     /**
+     * The character escaping LIKE wildcards in search patterns.
+     */
+    private const string LIKE_ESCAPE_CHARACTER = '!';
+
+    /**
      * Number of items displayed on single page.
      */
     protected int $itemsPerPage = 10;
+
+    /**
+     * Applies a "contains" search over the given columns, grouped in a single
+     * closure so the OR cannot break out of the constraints (UserScope
+     * included) already applied to the outer query.
+     *
+     * Spatie explodes a comma-bearing filter value into an array, so the term
+     * is joined back together before matching.
+     *
+     * MySQL treats a backslash as the default LIKE escape character but SQLite
+     * has none, so the wildcards are escaped with `!` and paired with an
+     * explicit ESCAPE clause, which keeps `%` and `_` literal on both drivers.
+     * The escape character itself is escaped first so it cannot cancel out the
+     * wildcard escapes that follow it.
+     *
+     * @param  list<string>  $columns
+     * @param  string|array<int, string>  $value
+     */
+    protected function applySearchFilter(
+        EloquentBuilder|DatabaseBuilder $query,
+        array $columns,
+        string|array $value
+    ): void {
+        $term = is_array($value) ? implode(',', $value) : $value;
+
+        $escaped = str_replace(
+            [self::LIKE_ESCAPE_CHARACTER, '%', '_'],
+            [
+                self::LIKE_ESCAPE_CHARACTER.self::LIKE_ESCAPE_CHARACTER,
+                self::LIKE_ESCAPE_CHARACTER.'%',
+                self::LIKE_ESCAPE_CHARACTER.'_',
+            ],
+            $term
+        );
+
+        $query->where(function (EloquentBuilder|DatabaseBuilder $query) use ($columns, $escaped): void {
+            foreach ($columns as $column) {
+                $query->orWhereRaw(
+                    $query->getGrammar()->wrap($column)
+                        ." like ? escape '".self::LIKE_ESCAPE_CHARACTER."'",
+                    ["%{$escaped}%"]
+                );
+            }
+        });
+    }
 
     /**
      * Standardizes the creation of a Spatie QueryBuilder instance for a given Model.

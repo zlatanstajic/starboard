@@ -7,8 +7,16 @@
             description: '',
             updateUrl: '',
             deleteUrl: '',
-            deleteItemName: ''
+            deleteItemName: '',
+            showFilters: false, // controls visibility of filter panel
+            columns: { number: true, name: true, description: true, profiles: true, timestamps: true, actions: true } // DEFAULTS: all columns visible
         }"
+        x-init="
+            showFilters = (localStorage.getItem('show_filters_network_tags') === '1');
+            try { columns = { ...columns, ...JSON.parse(localStorage.getItem('network_tags_columns') || '{}') }; } catch (e) { /* malformed value: keep DEFAULTS */ }
+            columns.name = true;
+            $watch('columns', value => localStorage.setItem('network_tags_columns', JSON.stringify(value)));
+        "
         @open-edit-modal.window="
             editOpen = true;
             name = $event.detail.name;
@@ -22,11 +30,26 @@
         ">
 
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+            {{-- overflow-visible (not overflow-hidden): the column dropdown must be able to overhang a short card. --}}
+            <div class="bg-white dark:bg-gray-800 overflow-visible shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
+                    <x-listing-filters
+                        :sort-options="__('messages.network_tag.sort')"
+                        :search-placeholder="__('messages.network_tag.placeholder.search')"
+                        :columns="[
+                            ['key' => 'name', 'label' => __('messages.default.name'), 'locked' => true],
+                            ['key' => 'number', 'label' => __('messages.default.row_number'), 'locked' => false],
+                            ['key' => 'description', 'label' => __('messages.default.description'), 'locked' => false],
+                            ['key' => 'profiles', 'label' => __('messages.network_source.network_profiles_count'), 'locked' => false],
+                            ['key' => 'timestamps', 'label' => __('messages.default.timestamps'), 'locked' => false],
+                            ['key' => 'actions', 'label' => __('messages.default.actions'), 'locked' => false],
+                        ]"
+                    />
+
                     <x-table-header
                         :title="__('messages.network_tag.page_name_title') . ' (' . __('messages.default.total_count_suffix', ['count' => $networkTags->total()]) . ')'"
-                        :show-filters-toggle="false"
+                        :show-filters-toggle="true"
+                        filters-storage-key="show_filters_network_tags"
                     />
 
                     @include('components.pagination', ['items' => $networkTags])
@@ -35,20 +58,22 @@
                         <table class="min-w-full text-sm text-left text-gray-500 dark:text-gray-400">
                             <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                 <tr>
-                                    <th scope="col" class="px-6 py-3">#</th>
-                                    <th scope="col" class="px-6 py-3">{{ __('messages.default.name') }}</th>
-                                    <th scope="col" class="px-6 py-3">{{ __('messages.default.description') }}</th>
-                                    <th scope="col" class="px-6 py-3">{{ __('messages.network_source.network_profiles_count') }}</th>
-                                    <th scope="col" class="px-2 py-3" title="{{ __('messages.default.timestamps_title') }}">{{ __('messages.default.timestamps') }}</th>
-                                    <th scope="col" class="px-6 py-3 text-right">{{ __('messages.default.actions') }}</th>
+                                    <th scope="col" class="px-6 py-3" data-col="number" x-show="columns.number">#</th>
+                                    <th scope="col" class="px-6 py-3" data-col="name" x-show="columns.name">{{ __('messages.default.name') }}</th>
+                                    <th scope="col" class="px-6 py-3" data-col="description" x-show="columns.description">{{ __('messages.default.description') }}</th>
+                                    <th scope="col" class="px-6 py-3" data-col="profiles" x-show="columns.profiles">{{ __('messages.network_source.network_profiles_count') }}</th>
+                                    <th scope="col" class="px-2 py-3" title="{{ __('messages.default.timestamps_title') }}" data-col="timestamps" x-show="columns.timestamps">{{ __('messages.default.timestamps') }}</th>
+                                    <th scope="col" class="px-6 py-3 text-right" data-col="actions" x-show="columns.actions">{{ __('messages.default.actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($networkTags as $tag)
                                     <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
-                                        <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{{ $networkTags->firstItem() + $loop->index }}</td>
+                                        <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white" data-col="number" x-show="columns.number">{{ $networkTags->firstItem() + $loop->index }}</td>
                                         <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white"
                                             title="{{ $tag->description ?? $tag->name }}"
+                                            data-col="name"
+                                            x-show="columns.name"
                                         >
                                             <a href="{{ route('dashboard', ['filter' => ['tags' => $tag->id]]) }}" class="text-indigo-600 hover:underline">
                                                 {{ Str::limit($tag->name, 30, '...') }}
@@ -56,19 +81,23 @@
                                         </td>
                                         <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white"
                                             title="{{ $tag->description ?? '/' }}"
+                                            data-col="description"
+                                            x-show="columns.description"
                                         >
                                             {{ $tag->description ? Str::limit($tag->description, 55, '...') : '/' }}
                                         </td>
-                                        <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+                                        <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white" data-col="profiles" x-show="columns.profiles">
                                             {{ $tag->network_profiles_count }}
                                         </td>
                                         <td
                                             class="px-6 py-4 whitespace-nowrap text-xs visit-at"
                                             title="{{ $tag->created_at }} / {{ $tag->updated_at }}"
+                                            data-col="timestamps"
+                                            x-show="columns.timestamps"
                                         >
                                             {{ $tag->created_at_short }} / {{ $tag->updated_at_short }}
                                         </td>
-                                        <td class="px-6 py-4 text-right">
+                                        <td class="px-6 py-4 text-right" data-col="actions" x-show="columns.actions">
                                             <div class="flex justify-end gap-2">
 
                                                 <x-edit-button

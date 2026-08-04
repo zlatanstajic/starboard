@@ -33,7 +33,8 @@ class NetworkTagController extends Controller
         try {
             $networkTags = $this->networkTagService->getAll(
                 paginate: true,
-                withCount: true
+                withCount: true,
+                filterable: true
             );
 
             return $this->handleView(compact('networkTags'));

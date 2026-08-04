@@ -42,6 +42,12 @@ class NetworkProfileControllerTest extends TestCase
             'preserves non-leading at' => ['Mr@Beast', 'Mr@Beast'],
             'trims surrounding spaces' => ['  @MrBeast  ', 'MrBeast'],
             'trims spaces exposed after at' => ['@ MrBeast', 'MrBeast'],
+            'strips http prefix' => ['http://example.com/profile', 'example.com/profile'],
+            'strips https prefix' => ['https://example.com/profile', 'example.com/profile'],
+            'strips case-insensitive scheme' => ['HTTPS://Example.com/profile', 'Example.com/profile'],
+            'strips only one leading scheme' => ['https://https://example.com', 'https://example.com'],
+            'preserves non-leading scheme' => ['profile-https://example.com', 'profile-https://example.com'],
+            'trims spaces exposed after scheme' => ['https:// example.com/profile', 'example.com/profile'],
         ];
     }
 
@@ -54,6 +60,20 @@ class NetworkProfileControllerTest extends TestCase
             'strips single leading at' => ['@updated', 'updated'],
             'strips only one leading at' => ['@@updated', '@updated'],
             'trims surrounding spaces' => ['  @updated  ', 'updated'],
+            'strips http prefix' => ['http://example.com/updated', 'example.com/updated'],
+            'strips case-insensitive https prefix' => ['  HTTPS://Example.com/updated  ', 'Example.com/updated'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function bareUrlSchemeProvider(): array
+    {
+        return [
+            'http scheme' => ['http://'],
+            'https scheme' => ['https://'],
+            'case-insensitive scheme with whitespace' => ['  HTTPS://  '],
         ];
     }
 
@@ -127,6 +147,42 @@ class NetworkProfileControllerTest extends TestCase
         foreach (['number', 'tags', 'status', 'favorite', 'visits', 'timestamps', 'actions'] as $key) {
             $response->assertSee('x-model="columns.'.$key.'"', false);
         }
+    }
+
+    public function test_dashboard_renders_stable_height_tag_filters(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->get(route('dashboard'));
+
+        $response->assertOk();
+        $response->assertSeeInOrder([
+            'data-tag-filter="included"',
+            'id="filter-tags-select"',
+            'data-tag-filter="excluded"',
+            'id="filter-exclude-tags-select"',
+        ], false);
+    }
+
+    public function test_dashboard_places_the_tags_filter_between_sort_and_descriptions(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->get(route('dashboard'));
+
+        $response->assertOk();
+
+        // First row holds the source/visits/time/status/favourite selects; the second row runs
+        // sort -> tags -> descriptions -> search, so the tags filter must follow the sort select.
+        $response->assertSeeInOrder([
+            'data-network-source-filter',
+            'aria-label="'.__('messages.network_profile.filter.all_visits').'"',
+            'aria-label="'.__('messages.network_profile.filter.all_statuses').'"',
+            'aria-label="'.__('messages.default.default_sort').'"',
+            'aria-label="'.__('messages.network_profile.filter.all_tags').'"',
+            'aria-label="'.__('messages.network_profile.filter.all_descriptions').'"',
+            'id="search-form"',
+        ], false);
     }
 
     public function test_index_handles_exception_and_redirects(): void
@@ -454,6 +510,27 @@ class NetworkProfileControllerTest extends TestCase
         $response->assertSessionHasErrors('username');
     }
 
+    #[DataProvider('bareUrlSchemeProvider')]
+    public function test_store_rejects_bare_url_scheme_and_does_not_call_service(string $username): void
+    {
+        $user = User::factory()->create();
+        $networkSource = NetworkSource::factory()->create();
+
+        $service = Mockery::mock(NetworkProfileService::class);
+        $service->shouldNotReceive('create');
+
+        $this->app->instance(NetworkProfileService::class, $service);
+
+        $response = $this->actingAs($user)->post(route('network-profiles.store'), [
+            'network_source_id' => $networkSource->id,
+            'username' => $username,
+            'is_public' => true,
+            'is_favorite' => false,
+        ]);
+
+        $response->assertSessionHasErrors('username');
+    }
+
     public function test_store_rejects_non_string_username_and_does_not_call_service(): void
     {
         $user = User::factory()->create();
@@ -542,6 +619,26 @@ class NetworkProfileControllerTest extends TestCase
 
         $networkProfile->refresh();
         $this->assertEquals('original', $networkProfile->username);
+    }
+
+    #[DataProvider('bareUrlSchemeProvider')]
+    public function test_update_rejects_bare_url_scheme_and_preserves_value(string $username): void
+    {
+        $user = User::factory()->create();
+        $networkSource = NetworkSource::factory()->create();
+        $networkProfile = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $networkSource->id,
+            'username' => 'original',
+        ]);
+
+        $response = $this->actingAs($user)->put(
+            route('network-profiles.update', ['networkProfile' => $networkProfile->id]),
+            ['username' => $username]
+        );
+
+        $response->assertSessionHasErrors('username');
+        $this->assertSame('original', $networkProfile->refresh()->username);
     }
 
     public function test_destroy_still_soft_deletes_with_inherited_prepare_for_validation(): void

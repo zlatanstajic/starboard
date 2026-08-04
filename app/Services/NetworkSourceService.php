@@ -24,9 +24,10 @@ class NetworkSourceService
      */
     public function getAll(
         bool $paginate = false,
-        bool $withCount = false
+        bool $withCount = false,
+        bool $filterable = false
     ): LengthAwarePaginator {
-        return $this->networkSourceRepository->getAll($paginate, 'name', $withCount);
+        return $this->networkSourceRepository->getAll($paginate, 'name', $withCount, $filterable);
     }
 
     /**

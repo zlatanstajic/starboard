@@ -7,7 +7,9 @@ namespace App\Repositories;
 use App\Exceptions\NetworkSource\NetworkSourceDuplicationException;
 use App\Models\NetworkSource;
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Spatie\QueryBuilder\AllowedFilter;
 
 class NetworkSourceRepository extends Repository
 {
@@ -17,10 +19,21 @@ class NetworkSourceRepository extends Repository
     public function getAll(
         bool $paginate = false,
         string $defaultSort = 'name',
-        bool $withCount = false
+        bool $withCount = false,
+        bool $filterable = false
     ): LengthAwarePaginator {
-        $query = $this->buildStandardQuery(NetworkSource::class)
-            ->defaultSort($defaultSort);
+        if ($filterable) {
+            $query = $this->buildStandardQuery(
+                NetworkSource::class,
+                filters: $this->additionalAllowedFilters()
+            )
+                ->defaultSort($defaultSort);
+        } else {
+            $query = NetworkSource::query()->orderBy(
+                ltrim($defaultSort, '-'),
+                str_starts_with($defaultSort, '-') ? 'desc' : 'asc'
+            );
+        }
 
         if ($withCount) {
             $query = $query->withCount('networkProfiles');
@@ -80,6 +93,21 @@ class NetworkSourceRepository extends Repository
     }
 
     /**
+     * The callback filters layered on top of NetworkSource's own
+     * ALLOWED_FILTERS (which buildStandardQuery merges in automatically).
+     *
+     * @return list<AllowedFilter>
+     */
+    private function additionalAllowedFilters(): array
+    {
+        return [
+            AllowedFilter::callback('search', $this->filterSearch(...)),
+            AllowedFilter::exact('exclude_from_dashboard'),
+            AllowedFilter::scope('profiles', 'byProfiles'),
+        ];
+    }
+
+    /**
      * Gets network source by name and url from trashed ones.
      */
     private function getByUnique(
@@ -131,5 +159,15 @@ class NetworkSourceRepository extends Repository
         $networkSource->update($data);
 
         return $networkSource;
+    }
+
+    /**
+     * Filter query by search term in name or url.
+     *
+     * @param  string|array<int, string>  $value
+     */
+    private function filterSearch(Builder $query, string|array $value): void
+    {
+        $this->applySearchFilter($query, ['name', 'url'], $value);
     }
 }

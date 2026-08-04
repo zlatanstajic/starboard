@@ -24,9 +24,10 @@ class NetworkTagService
      */
     public function getAll(
         bool $paginate = false,
-        bool $withCount = false
+        bool $withCount = false,
+        bool $filterable = false
     ): LengthAwarePaginator {
-        return $this->networkTagRepository->getAll($paginate, 'name', $withCount);
+        return $this->networkTagRepository->getAll($paginate, 'name', $withCount, $filterable);
     }
 
     /**

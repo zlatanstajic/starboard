@@ -233,16 +233,16 @@ class NetworkProfileRepository extends Repository
 
     /**
      * Filter query by search term in username, title, or description.
+     *
+     * @param  string|array<int, string>  $value
      */
-    private function filterSearch(Builder $query, string $value): void
+    private function filterSearch(Builder $query, string|array $value): void
     {
-        $escaped = str_replace(['%', '_'], ['\%', '\_'], $value);
-
-        $query->where(function ($query) use ($escaped): void {
-            $query->where('username', 'like', "%{$escaped}%")
-                ->orWhere('title', 'like', "%{$escaped}%")
-                ->orWhere('description', 'like', "%{$escaped}%");
-        });
+        $this->applySearchFilter(
+            $query,
+            ['username', 'title', 'description'],
+            $value
+        );
     }
 
     /**

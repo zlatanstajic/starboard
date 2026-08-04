@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Http\Controllers;
 
+use App\Models\NetworkProfile;
 use App\Models\NetworkSource;
 use App\Models\User;
+use App\Repositories\NetworkSourceRepository;
 use App\Services\NetworkSourceService;
 use Exception;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -156,6 +158,126 @@ class NetworkSourceControllerTest extends TestCase
         $response->assertRedirect();
     }
 
+    public function test_index_narrows_the_listing_with_the_search_filter(): void
+    {
+        $this->useRealService();
+        $matching = $this->createSource('Matching_'.uniqid(), 'https://matching.test/{username}');
+        $other = $this->createSource('Other_'.uniqid(), 'https://other.test/{username}');
+
+        $response = $this->get(route('network-sources.index', [
+            'filter' => ['search' => $matching->name],
+        ]));
+
+        $response->assertOk();
+        $response->assertSee($matching->name);
+        $response->assertDontSee($other->name);
+    }
+
+    public function test_index_sorts_the_listing_in_reverse_name_order(): void
+    {
+        $this->useRealService();
+        $unique = uniqid();
+        $first = $this->createSource('AAA_'.$unique, 'https://aaa.test/{username}');
+        $last = $this->createSource('ZZZ_'.$unique, 'https://zzz.test/{username}');
+
+        $response = $this->get(route('network-sources.index', ['sort' => '-name']));
+
+        $response->assertOk();
+        $response->assertSeeInOrder([$last->name, $first->name]);
+    }
+
+    public function test_index_sorts_the_listing_by_network_profiles_count(): void
+    {
+        $this->useRealService();
+        $unique = uniqid();
+        $empty = $this->createSource('Empty_'.$unique, 'https://empty.test/{username}');
+        $busy = $this->createSource('Busy_'.$unique, 'https://busy.test/{username}');
+
+        NetworkProfile::factory()->count(2)->create([
+            'user_id' => $this->user->id,
+            'network_source_id' => $busy->id,
+        ]);
+
+        $response = $this->get(route('network-sources.index', ['sort' => '-network_profiles_count']));
+
+        $response->assertOk();
+        $response->assertSeeInOrder([$busy->name, $empty->name]);
+    }
+
+    public function test_index_filters_the_listing_by_profile_count_range(): void
+    {
+        $this->useRealService();
+        $unique = uniqid();
+        $empty = $this->createSource('Empty_'.$unique, 'https://empty.test/{username}');
+        $busy = $this->createSource('Busy_'.$unique, 'https://busy.test/{username}');
+
+        NetworkProfile::factory()->count(2)->create([
+            'user_id' => $this->user->id,
+            'network_source_id' => $busy->id,
+        ]);
+
+        $response = $this->get(route('network-sources.index', ['filter' => ['profiles' => '0']]));
+
+        $response->assertOk();
+        $response->assertSee($empty->name);
+        $response->assertDontSee($busy->name);
+    }
+
+    public function test_index_filters_the_listing_by_source_status(): void
+    {
+        $this->useRealService();
+        $unique = uniqid();
+        $included = NetworkSource::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'Included_'.$unique,
+            'exclude_from_dashboard' => false,
+        ]);
+        $excluded = NetworkSource::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'Excluded_'.$unique,
+            'exclude_from_dashboard' => true,
+        ]);
+
+        $includedResponse = $this->get(route('network-sources.index', [
+            'filter' => ['exclude_from_dashboard' => '0'],
+        ]));
+
+        $includedResponse->assertOk();
+        $includedResponse->assertSee($included->name);
+        $includedResponse->assertDontSee($excluded->name);
+
+        $excludedResponse = $this->get(route('network-sources.index', [
+            'filter' => ['exclude_from_dashboard' => '1'],
+        ]));
+
+        $excludedResponse->assertOk();
+        $excludedResponse->assertSee($excluded->name);
+        $excludedResponse->assertDontSee($included->name);
+    }
+
+    public function test_index_redirects_when_the_sort_is_not_allowed(): void
+    {
+        $this->useRealService();
+
+        $response = $this->get(route('network-sources.index', ['sort' => 'bogus']));
+
+        $response->assertRedirect(route('network-sources.index'));
+    }
+
+    public function test_index_without_a_query_lists_every_source(): void
+    {
+        $this->useRealService();
+        $unique = uniqid();
+        $first = $this->createSource('First_'.$unique, 'https://first.test/{username}');
+        $second = $this->createSource('Second_'.$unique, 'https://second.test/{username}');
+
+        $response = $this->get(route('network-sources.index'));
+
+        $response->assertOk();
+        $response->assertSee($first->name);
+        $response->assertSee($second->name);
+    }
+
     public function test_destroy_handles_false_return_and_redirects(): void
     {
         $source = NetworkSource::factory()->create(['user_id' => $this->user->id]);
@@ -173,5 +295,30 @@ class NetworkSourceControllerTest extends TestCase
         $response = $this->delete(route('network-sources.destroy', $source));
 
         $response->assertRedirect();
+    }
+
+    /**
+     * Swaps the service mock for the real service so the listing query
+     * (search, sort) is actually executed against the database.
+     */
+    private function useRealService(): void
+    {
+        $this->app->forgetInstance(NetworkSourceService::class);
+        $this->instance(
+            NetworkSourceService::class,
+            new NetworkSourceService(new NetworkSourceRepository)
+        );
+    }
+
+    /**
+     * Creates a network source owned by the acting user.
+     */
+    private function createSource(string $name, string $url): NetworkSource
+    {
+        return NetworkSource::query()->create([
+            'user_id' => $this->user->id,
+            'name' => $name,
+            'url' => $url,
+        ]);
     }
 }

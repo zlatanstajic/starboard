@@ -35,7 +35,7 @@ class NetworkSourceServiceTest extends TestCase
         $this->repository
             ->shouldReceive('getAll')
             ->once()
-            ->with(false, 'name', false)
+            ->with(false, 'name', false, false)
             ->andReturn($paginator);
 
         $result = $this->service->getAll();
@@ -53,10 +53,25 @@ class NetworkSourceServiceTest extends TestCase
         $this->repository
             ->shouldReceive('getAll')
             ->once()
-            ->with(true, 'name', true)
+            ->with(true, 'name', true, false)
             ->andReturn($paginator);
 
         $result = $this->service->getAll(paginate: true, withCount: true);
+
+        $this->assertSame($paginator, $result);
+    }
+
+    public function test_get_all_passes_filterable_flag(): void
+    {
+        $paginator = new LengthAwarePaginator(collect(), 0, 10, 1);
+
+        $this->repository
+            ->shouldReceive('getAll')
+            ->once()
+            ->with(true, 'name', true, true)
+            ->andReturn($paginator);
+
+        $result = $this->service->getAll(paginate: true, withCount: true, filterable: true);
 
         $this->assertSame($paginator, $result);
     }
