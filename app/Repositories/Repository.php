@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use App\Models\Scopes\UserScope;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Query\Builder as DatabaseBuilder;
+use Illuminate\Http\Request;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 
@@ -73,27 +76,69 @@ abstract class Repository
         string $modelClass,
         array $includes = [],
         array $filters = [],
-        array $sorts = []
+        array $sorts = [],
+        ?EloquentBuilder $subject = null,
+        ?Request $request = null,
+        bool $includeModelFilters = true,
+        bool $includeModelIncludes = true,
+        bool $includeModelSorts = true
     ): QueryBuilder {
-        $query = QueryBuilder::for($modelClass);
+        $query = QueryBuilder::for($subject ?? $modelClass, $request);
+        $allowedIncludes = $includeModelIncludes
+            ? array_merge($modelClass::ALLOWED_INCLUDES, $includes)
+            : $includes;
 
-        if (! empty($modelClass::ALLOWED_INCLUDES)) {
-            $query->allowedIncludes(
-                ...$modelClass::ALLOWED_INCLUDES,
-                ...$includes
-            );
+        if ($allowedIncludes !== []) {
+            $query->allowedIncludes(...$allowedIncludes);
         }
 
-        $query = $this->applyNormalizedFilters($query, $modelClass, $filters);
+        $query = $this->applyNormalizedFilters($query, $modelClass, $filters, $includeModelFilters);
 
-        if (! empty($modelClass::ALLOWED_SORTS)) {
-            $query->allowedSorts(
-                ...$modelClass::ALLOWED_SORTS,
-                ...$sorts
-            );
+        $allowedSorts = $includeModelSorts
+            ? array_merge($modelClass::ALLOWED_SORTS, $sorts)
+            : $sorts;
+
+        if ($allowedSorts !== []) {
+            $query->allowedSorts(...$allowedSorts);
         }
 
         return $query;
+    }
+
+    /**
+     * Starts a public read with the tenant scope removed and an explicit owner
+     * constraint restored. Public callers must use this helper so UserScope's
+     * guest fail-open behavior can never expose another user's records.
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  EloquentBuilder<TModel>  $query
+     * @return EloquentBuilder<TModel>
+     */
+    protected function ownerScopedQuery(EloquentBuilder $query, int $ownerId): EloquentBuilder
+    {
+        $this->constrainToOwner($query, $query->getModel()::class, $ownerId);
+
+        return $query;
+    }
+
+    /**
+     * Applies the same fail-closed owner constraint to an existing relation or
+     * Eloquent query, including relationship eager-load queries.
+     *
+     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $modelClass
+     */
+    protected function constrainToOwner(
+        EloquentBuilder|Relation $query,
+        string $modelClass,
+        int $ownerId
+    ): void {
+        $model = new $modelClass;
+        $builder = $query instanceof Relation ? $query->getQuery() : $query;
+
+        $builder
+            ->withoutGlobalScope(UserScope::class)
+            ->where($model->getTable().'.user_id', $ownerId);
     }
 
     /**
@@ -104,11 +149,12 @@ abstract class Repository
     private function applyNormalizedFilters(
         QueryBuilder $query,
         string $modelClass,
-        array $filters = []
+        array $filters = [],
+        bool $includeModelFilters = true
     ): QueryBuilder {
         $mergedFilters = [];
 
-        if (! empty($modelClass::ALLOWED_FILTERS)) {
+        if ($includeModelFilters && ! empty($modelClass::ALLOWED_FILTERS)) {
             $mergedFilters = array_merge($modelClass::ALLOWED_FILTERS, $filters);
         } else {
             $mergedFilters = $filters;

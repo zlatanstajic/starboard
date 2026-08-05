@@ -8,11 +8,20 @@ use App\Exceptions\NetworkSource\NetworkSourceDuplicationException;
 use App\Models\NetworkSource;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Spatie\QueryBuilder\AllowedFilter;
 
 class NetworkSourceRepository extends Repository
 {
+    /** @return Collection<int, NetworkSource> */
+    public function getAllForOwner(int $ownerId): Collection
+    {
+        return $this->ownerScopedQuery(NetworkSource::query(), $ownerId)
+            ->orderBy('name')
+            ->get();
+    }
+
     /**
      * Gets all network sources and returns a unified Paginator instance.
      */

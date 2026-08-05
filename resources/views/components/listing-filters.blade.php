@@ -6,12 +6,14 @@
     'columns',
     // filter value => human label; omitted on listings without statuses
     'statusOptions' => [],
+    'statusName' => 'exclude_from_dashboard',
+    'showProfilesFilter' => true,
 ])
 
 @php
     $search = request()->input('filter.search');
     $search = is_string($search) ? $search : '';
-    $status = request()->input('filter.exclude_from_dashboard');
+    $status = request()->input('filter.'.$statusName);
     $status = is_string($status) ? $status : '';
 @endphp
 
@@ -48,25 +50,27 @@
             that one it is a real form field (name="filter[profiles]") rather than
             a select of URLs, so it submits alongside the sort and search.
         --}}
-        <div class="w-full md:w-1/5">
-            <x-filter-select name="filter[profiles]" :navigate="false" onchange="this.form.requestSubmit()" :aria-label="__('messages.default.all_profiles')">
-                <option value="">{{ __('messages.default.all_profiles') }}</option>
+        @if($showProfilesFilter)
+            <div class="w-full md:w-1/5">
+                <x-filter-select name="filter[profiles]" :navigate="false" onchange="this.form.requestSubmit()" :aria-label="__('messages.default.all_profiles')">
+                    <option value="">{{ __('messages.default.all_profiles') }}</option>
 
-                <option value="0" {{ request('filter.profiles') === '0' ? 'selected' : '' }}>
-                    {{ __('messages.default.no_profiles') }}
-                </option>
-
-                @foreach(['1-5', '6-10', '11-20', '21-50', '51-100', '100+'] as $range)
-                    <option value="{{ $range }}" {{ request('filter.profiles') === $range ? 'selected' : '' }}>
-                        {{ $range }}
+                    <option value="0" {{ request('filter.profiles') === '0' ? 'selected' : '' }}>
+                        {{ __('messages.default.no_profiles') }}
                     </option>
-                @endforeach
-            </x-filter-select>
-        </div>
+
+                    @foreach(['1-5', '6-10', '11-20', '21-50', '51-100', '100+'] as $range)
+                        <option value="{{ $range }}" {{ request('filter.profiles') === $range ? 'selected' : '' }}>
+                            {{ $range }}
+                        </option>
+                    @endforeach
+                </x-filter-select>
+            </div>
+        @endif
 
         @if($statusOptions !== [])
             <div class="w-full md:w-1/5">
-                <x-filter-select name="filter[exclude_from_dashboard]" :navigate="false" onchange="this.form.requestSubmit()" :aria-label="__('messages.network_source.filter.all_statuses')">
+                <x-filter-select name="filter[{{ $statusName }}]" :navigate="false" onchange="this.form.requestSubmit()" :aria-label="__('messages.network_source.filter.all_statuses')">
                     @foreach($statusOptions as $value => $label)
                         <option value="{{ $value }}" {{ $status === (string) $value ? 'selected' : '' }}>
                             {{ $label }}

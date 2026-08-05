@@ -5,15 +5,43 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Exceptions\NetworkProfile\NetworkProfileDuplicationException;
+use App\Models\FilterList;
 use App\Models\NetworkProfile;
+use App\Models\NetworkSource;
+use App\Models\NetworkTag;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\LazyCollection;
 use Spatie\QueryBuilder\AllowedFilter;
+use Spatie\QueryBuilder\AllowedSort;
+use Spatie\QueryBuilder\Enums\SortDirection;
+use Spatie\QueryBuilder\QueryBuilder;
 
 class NetworkProfileRepository extends Repository
 {
+    public const array ADDITIONAL_FILTERS = [
+        'visits',
+        'last_visit',
+        'new_items',
+        'has_description',
+        'search',
+        'tags',
+        'exclude_tags',
+    ];
+
+    /**
+     * Exposed tag ids per FilterList id, memoized for the request: the public
+     * tag filter callback would otherwise replay the saved capture once per
+     * filtered request on top of the two passes the listing already runs.
+     *
+     * @var array<int, list<string>>
+     */
+    private array $exposedTagIds = [];
+
     /**
      * Gets all network profile
      */
@@ -23,28 +51,114 @@ class NetworkProfileRepository extends Repository
             'user',
             'networkTags',
         ],
-        string $defaultSort = 'last_visit_at'
+        string $defaultSort = 'last_visit_at',
+        ?Request $request = null
     ): LengthAwarePaginator {
+        $request ??= request();
         $query = $this->buildStandardQuery(
             NetworkProfile::class,
-            filters: $this->additionalAllowedFilters()
+            filters: $this->additionalAllowedFilters(),
+            request: $request
         )
             ->defaultSort($defaultSort);
 
         // If no specific network source was selected (i.e. "All Network Sources"),
         // exclude profiles that belong to network sources marked as excluded.
-        if (! request('filter.network_source_id')) {
-            $query->whereHas('networkSource', function ($q): void {
+        if (! $request->input('filter.network_source_id')) {
+            $query->whereHas('networkSource', function (Builder $query): void {
                 // Ignore global scopes (like UserScope) on the NetworkSource
                 // subquery so tests that create sources with different owners
                 // still match when evaluating the exclude flag.
-                $q->withoutGlobalScopes()->where('exclude_from_dashboard', false);
+                $query->withoutGlobalScopes()->where('exclude_from_dashboard', false);
             });
         }
 
         return $query->with($includes)
             ->paginate($this->itemsPerPage)
             ->withQueryString();
+    }
+
+    /**
+     * Replays the owner's saved filters before applying the visitor's reduced
+     * filter set. Both passes intentionally mutate the same Eloquent builder.
+     */
+    public function getForFilterList(
+        FilterList $filterList,
+        ?Request $visitorRequest = null
+    ): LengthAwarePaginator {
+        $savedSort = $filterList->filters['sort'] ?? null;
+        $savedSort = is_string($savedSort) ? $savedSort : 'last_visit_at';
+        $passOne = $this->buildSavedFilterListQuery($filterList);
+
+        $publicSorts = $this->publicAllowedSorts();
+        $savedSortName = ltrim($savedSort, '-');
+        $descending = str_starts_with($savedSort, '-');
+        $publicSort = collect($publicSorts)
+            ->first(fn (AllowedSort $sort): bool => $sort->isSort($savedSortName));
+
+        $publicSort ??= AllowedSort::field($savedSortName);
+
+        $passTwo = $this->buildStandardQuery(
+            NetworkProfile::class,
+            filters: $this->publicAllowedFilters($filterList),
+            sorts: $publicSorts,
+            subject: $passOne->getEloquentBuilder(),
+            request: $visitorRequest ?? request(),
+            includeModelFilters: false,
+            includeModelIncludes: false,
+            includeModelSorts: false
+        )->defaultSort(
+            (clone $publicSort)->defaultDirection(
+                $descending ? SortDirection::DESCENDING : SortDirection::ASCENDING
+            )
+        );
+
+        return $passTwo
+            ->with([
+                'networkSource' => function (Relation $relation) use ($filterList): void {
+                    $this->constrainToOwner($relation, NetworkSource::class, $filterList->user_id);
+                },
+                'networkTags' => function (Relation $relation) use ($filterList): void {
+                    $this->constrainToOwner($relation, NetworkTag::class, $filterList->user_id);
+                },
+            ])
+            ->paginate($this->itemsPerPage)
+            ->withQueryString();
+    }
+
+    /**
+     * Network sources actually represented in a published list's profile set.
+     *
+     * @return Collection<int, NetworkSource>
+     */
+    public function getSourcesForFilterList(FilterList $filterList): Collection
+    {
+        return $this->ownerScopedQuery(NetworkSource::query(), $filterList->user_id)
+            ->whereIn('id', $this->buildSavedFilterListQuery($filterList)
+                ->getEloquentBuilder()
+                ->select('network_profiles.network_source_id'))
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * Network tags actually attached to a published list's profile set.
+     *
+     * @return Collection<int, NetworkTag>
+     */
+    public function getTagsForFilterList(FilterList $filterList): Collection
+    {
+        $profiles = $this->buildSavedFilterListQuery($filterList)
+            ->getEloquentBuilder()
+            ->select('network_profiles.id');
+
+        return $this->ownerScopedQuery(NetworkTag::query(), $filterList->user_id)
+            ->whereHas('networkProfiles', function (Builder $query) use ($profiles): void {
+                $query->withoutGlobalScopes()
+                    ->whereIn('network_profiles.id', $profiles);
+            })
+            ->orderBy('name')
+            ->get();
     }
 
     /**
@@ -138,6 +252,128 @@ class NetworkProfileRepository extends Repository
             AllowedFilter::callback('tags', $this->filterTags(...)),
             AllowedFilter::callback('exclude_tags', $this->filterExcludeTags(...)),
         ];
+    }
+
+    /**
+     * The owner's saved capture as a query: public profiles they own, narrowed
+     * by the saved filters and (unless the capture pins a source) restricted to
+     * sources not excluded from the dashboard. This is the single definition of
+     * "what the list exposes", shared by the public listing and the public
+     * filter dropdowns so the two can never disagree.
+     */
+    private function buildSavedFilterListQuery(FilterList $filterList): QueryBuilder
+    {
+        $savedFilters = $filterList->filters['filter'] ?? [];
+        $savedRequest = Request::create('/', 'GET', ['filter' => $savedFilters]);
+
+        $owned = $this->ownerScopedQuery(NetworkProfile::query(), $filterList->user_id)
+            ->where('network_profiles.is_public', true);
+
+        $query = $this->buildStandardQuery(
+            NetworkProfile::class,
+            filters: $this->additionalAllowedFilters(),
+            subject: $owned,
+            request: $savedRequest
+        );
+
+        if (! $savedRequest->input('filter.network_source_id')) {
+            $query->whereHas('networkSource', function (Builder $query) use ($filterList): void {
+                $this->constrainToOwner($query, NetworkSource::class, $filterList->user_id);
+                $query->where('exclude_from_dashboard', false);
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * The only sorts a public list visitor may address: name and username.
+     *
+     * @return list<AllowedSort>
+     */
+    private function publicAllowedSorts(): array
+    {
+        return [
+            AllowedSort::callback('name', function (Builder $query, bool $descending): void {
+                $query->orderByRaw(
+                    'lower(coalesce(network_profiles.title, network_profiles.username)) '
+                        .($descending ? 'desc' : 'asc')
+                );
+            }),
+            AllowedSort::field('username', 'network_profiles.username'),
+        ];
+    }
+
+    /** @return list<AllowedFilter> */
+    private function publicAllowedFilters(FilterList $filterList): array
+    {
+        return [
+            AllowedFilter::exact('network_source_id'),
+            AllowedFilter::callback('search', $this->filterSearch(...)),
+            AllowedFilter::callback(
+                'tags',
+                function (Builder $query, string|array $value) use ($filterList): void {
+                    $this->filterPublicTags($query, $value, $filterList);
+                }
+            ),
+        ];
+    }
+
+    /**
+     * The visitor-facing tags filter. filterTags() bypasses UserScope on the
+     * pivot lookup, so an id the list does not expose would answer "does
+     * profile X carry tag Y" for a stranger's tag. Incoming ids are therefore
+     * intersected with the list's own exposed tag set; if nothing survives, the
+     * filter stays a filter and matches no profile rather than being ignored.
+     *
+     * The 'any'/'none' sentinels the public dropdown also offers expose no tag
+     * identity at all, so they short-circuit straight to filterTags() — running
+     * them through the id intersection would leave them as literal strings that
+     * match no exposed id and silently return zero profiles.
+     */
+    private function filterPublicTags(
+        Builder $query,
+        string|array $value,
+        FilterList $filterList
+    ): void {
+        if (empty($value)) {
+            return;
+        }
+
+        if ($value === 'any' || $value === 'none') {
+            $this->filterTags($query, $value);
+
+            return;
+        }
+
+        $requested = $this->normalizeTagIds($value);
+
+        if (empty($requested)) {
+            return;
+        }
+
+        $allowed = array_values(array_intersect($requested, $this->exposedTagIds($filterList)));
+
+        if (empty($allowed)) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $this->filterTags($query, $allowed);
+    }
+
+    /**
+     * The list's exposed tag ids as strings, resolved once per FilterList.
+     *
+     * @return list<string>
+     */
+    private function exposedTagIds(FilterList $filterList): array
+    {
+        return $this->exposedTagIds[$filterList->id] ??= $this->getTagsForFilterList($filterList)
+            ->map(fn (NetworkTag $tag): string => (string) $tag->id)
+            ->values()
+            ->all();
     }
 
     /**
@@ -246,18 +482,6 @@ class NetworkProfileRepository extends Repository
     }
 
     /**
-     * Filter query by associated network tags.
-     *
-     * Several branches below call withoutGlobalScopes() on the tag sub-query.
-     * This is intentional: NetworkTag carries a UserScope that restricts records
-     * to Auth::id(), but these sub-queries only test pivot-table existence —
-     * no tag data is returned to the caller. Bypassing the scope gives accurate
-     * results even when a profile is linked to a tag whose user_id differs from
-     * the current user (e.g. after a reassignment or in tests). The outer
-     * NetworkProfile query still has its own UserScope applied, so only the
-     * current user's profiles are ever returned.
-     */
-    /**
      * Filter query to exclude profiles that have ANY of the given tags.
      *
      * Uses the same withoutGlobalScopes() strategy as filterTags() for
@@ -281,6 +505,18 @@ class NetworkProfileRepository extends Repository
         });
     }
 
+    /**
+     * Filter query by associated network tags.
+     *
+     * Several branches below call withoutGlobalScopes() on the tag sub-query.
+     * This is intentional: NetworkTag carries a UserScope that restricts records
+     * to Auth::id(), but these sub-queries only test pivot-table existence —
+     * no tag data is returned to the caller. Bypassing the scope gives accurate
+     * results even when a profile is linked to a tag whose user_id differs from
+     * the current user (e.g. after a reassignment or in tests). The outer
+     * NetworkProfile query still has its own UserScope applied, so only the
+     * current user's profiles are ever returned.
+     */
     private function filterTags(Builder $query, string|array $value): void
     {
         if (empty($value)) {

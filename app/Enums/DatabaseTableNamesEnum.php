@@ -12,4 +12,5 @@ enum DatabaseTableNamesEnum: string
     case network_profiles = 'network_profiles';
     case network_tags = 'network_tags';
     case network_profile_network_tag = 'network_profile_network_tag';
+    case filter_lists = 'filter_lists';
 }

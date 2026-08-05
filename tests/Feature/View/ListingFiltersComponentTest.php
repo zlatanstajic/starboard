@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\View;
 
+use App\Models\FilterList;
 use App\Models\NetworkSource;
 use App\Models\NetworkTag;
 use App\Models\User;
@@ -234,5 +235,34 @@ class ListingFiltersComponentTest extends TestCase
         $response->assertOk();
         $response->assertSee("localStorage.setItem('show_filters',", false);
         $response->assertSee('dashboard_columns', false);
+    }
+
+    public function test_filter_lists_page_uses_its_status_filter_without_the_profiles_filter(): void
+    {
+        FilterList::factory()->create(['user_id' => $this->user->id]);
+
+        $response = $this->get(route('filter-lists.index', [
+            'filter' => ['is_published' => '1'],
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('name="filter[is_published]"', false);
+        $response->assertSee('value="1" selected', false);
+        $response->assertDontSee('name="filter[profiles]"', false);
+        $response->assertSee('filter_lists_columns', false);
+        $response->assertSee('show_filters_filter_lists', false);
+    }
+
+    public function test_existing_listing_component_defaults_are_unchanged(): void
+    {
+        foreach (['network-sources.index', 'network-tags.index'] as $route) {
+            $response = $this->get(route($route));
+
+            $response->assertOk();
+            $response->assertSee('name="filter[profiles]"', false);
+        }
+
+        $this->get(route('network-sources.index'))
+            ->assertSee('name="filter[exclude_from_dashboard]"', false);
     }
 }

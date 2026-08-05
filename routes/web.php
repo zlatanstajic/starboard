@@ -2,16 +2,28 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\FilterListController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\NetworkProfileController;
 use App\Http\Controllers\NetworkSourceController;
 use App\Http\Controllers\NetworkTagController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SharedFilterListController;
 use Illuminate\Support\Facades\Route;
 
 /**
  * Home
  */
-Route::get('/', fn () => view('welcome'))->name('home');
+Route::get('/', [HomeController::class, 'index'])->name('home');
+
+/**
+ * The hash is this page's only access control, so the endpoint is throttled to
+ * blunt enumeration of the 200/404 oracle it would otherwise be.
+ */
+Route::get('/lists/{token}', [SharedFilterListController::class, 'show'])
+    ->where('token', '[A-Za-z0-9]+')
+    ->middleware('throttle:60,1')
+    ->name('filter-lists.show');
 
 // Locale switcher (English / Serbian)
 Route::get('/locale/{locale}', function ($locale) {
@@ -81,6 +93,16 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
             Route::post('/', 'store')->name('store');
             Route::put('{networkTag}', 'update')->name('update');
             Route::delete('{networkTag}', 'destroy')->name('destroy');
+        });
+
+    Route::prefix('filter-lists')
+        ->name('filter-lists.')
+        ->controller(FilterListController::class)
+        ->group(function (): void {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+            Route::put('{filterList}', 'update')->name('update');
+            Route::delete('{filterList}', 'destroy')->name('destroy');
         });
 });
 

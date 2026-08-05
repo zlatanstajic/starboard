@@ -3,6 +3,7 @@
     'showFiltersToggle' => true,
     // Per-page localStorage key holding the filter panel's open/closed state.
     'filtersStorageKey' => 'show_filters',
+    'showCreateButton' => true,
 ])
 
 <div {{ $attributes->merge(['class' => 'flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4']) }}>
@@ -126,6 +127,8 @@
             {{ __('messages.default.refresh') }}
         </button>
 
-        <x-create-button />
+        @if($showCreateButton)
+            <x-create-button />
+        @endif
     </div>
 </div>

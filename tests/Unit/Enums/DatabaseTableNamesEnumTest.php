@@ -22,6 +22,7 @@ class DatabaseTableNamesEnumTest extends TestCase
             'network_profiles' => [DatabaseTableNamesEnum::network_profiles, 'network_profiles'],
             'network_tags' => [DatabaseTableNamesEnum::network_tags, 'network_tags'],
             'network_profile_network_tag' => [DatabaseTableNamesEnum::network_profile_network_tag, 'network_profile_network_tag'],
+            'filter_lists' => [DatabaseTableNamesEnum::filter_lists, 'filter_lists'],
         ];
     }
 
@@ -33,7 +34,7 @@ class DatabaseTableNamesEnumTest extends TestCase
 
     public function test_cases_count_matches_expected(): void
     {
-        $this->assertCount(6, DatabaseTableNamesEnum::cases());
+        $this->assertCount(7, DatabaseTableNamesEnum::cases());
     }
 
     public function test_can_be_created_from_string_value(): void

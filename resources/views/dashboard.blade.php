@@ -259,13 +259,21 @@
                             ['key' => 'actions', 'label' => __('messages.default.actions'), 'locked' => false],
                         ]" />
 
-                        <button onclick="window.location.href='{{ request()->url() }}'"
+                        <button data-clear-filters onclick="window.location.href='{{ request()->url() }}'"
                             class="inline-flex w-28 shrink-0 items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700 transition-colors">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                             </svg>
                             {{ __('messages.default.clear') }}
                         </button>
+
+                        @if(request()->filled('filter') || request()->filled('sort'))
+                            <button type="button" data-publish-filter-list @click="$dispatch('open-publish-list-modal')"
+                                class="inline-flex w-28 shrink-0 items-center justify-center rounded-lg border border-transparent bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                                {{ __('messages.filter_list.publish') }}
+                            </button>
+                        @endif
                     </div>
 
                     <x-table-header
@@ -535,6 +543,23 @@
             title="{{ __('messages.network_profile.delete_network_profile') }}"
             message="{{ __('messages.network_profile.delete_network_profile_message') }}"
         />
+
+        <x-publish-modal />
+
+        @if(session('published_filter_list'))
+            <div x-data="{ isOpen: false }" x-init="isOpen = true" x-show="isOpen" x-cloak @keydown.escape.window="isOpen = false"
+                class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4" role="dialog" aria-modal="true" aria-label="{{ __('messages.filter_list.published') }}">
+                <div class="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800" @click.away="isOpen = false">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ __('messages.filter_list.published') }}</h3>
+                    <p class="mb-4 mt-1 text-sm text-gray-600 dark:text-gray-300">{{ session('published_filter_list.name') }}</p>
+                    <x-copy-link :url="session('published_filter_list.url')" />
+                    <div class="mt-6 flex items-center justify-end gap-3">
+                        <a href="{{ route('filter-lists.index') }}" class="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">{{ __('messages.filter_list.manage') }}</a>
+                        <button type="button" @click="isOpen = false" class="rounded-lg bg-gray-100 px-4 py-2 text-sm hover:bg-gray-200 dark:bg-gray-700 dark:text-white">{{ __('messages.default.cancel') }}</button>
+                    </div>
+                </div>
+            </div>
+        @endif
 
     </div>
 

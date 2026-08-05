@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Jobs\FetchYouTubeNewItemsJob;
+use App\Models\FilterList;
 use App\Models\NetworkProfile;
+use App\Models\NetworkSource;
+use App\Models\NetworkTag;
 use App\Repositories\NetworkProfileRepository;
 use Illuminate\Bus\Batch;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Date;
@@ -36,6 +41,36 @@ class NetworkProfileService
     public function getAll(): LengthAwarePaginator
     {
         return $this->networkProfileRepository->getAll();
+    }
+
+    /**
+     * Gets network profiles for given filter list.
+     */
+    public function getForFilterList(
+        FilterList $filterList,
+        ?Request $visitorRequest = null
+    ): LengthAwarePaginator {
+        return $this->networkProfileRepository->getForFilterList($filterList, $visitorRequest);
+    }
+
+    /**
+     * Network sources represented in a published list, for its filter dropdown.
+     *
+     * @return Collection<int, NetworkSource>
+     */
+    public function getSourcesForFilterList(FilterList $filterList): Collection
+    {
+        return $this->networkProfileRepository->getSourcesForFilterList($filterList);
+    }
+
+    /**
+     * Network tags represented in a published list, for its filter dropdown.
+     *
+     * @return Collection<int, NetworkTag>
+     */
+    public function getTagsForFilterList(FilterList $filterList): Collection
+    {
+        return $this->networkProfileRepository->getTagsForFilterList($filterList);
     }
 
     /**

@@ -30,7 +30,18 @@
             "substring",
             "substrings",
             "svg",
-            "imdb"
+            "imdb",
+            "shareable",
+            "unpublish",
+            "unpublished",
+            "slug",
+            "seo",
+            "noindex",
+            "unpublishing",
+            "memoized",
+            "unaddressable",
+            "deterministically",
+            "erroring"
         ],
         "paths": []
     }

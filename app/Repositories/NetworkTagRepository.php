@@ -8,11 +8,20 @@ use App\Exceptions\NetworkTag\NetworkTagDuplicationException;
 use App\Models\NetworkTag;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Spatie\QueryBuilder\AllowedFilter;
 
 class NetworkTagRepository extends Repository
 {
+    /** @return Collection<int, NetworkTag> */
+    public function getAllForOwner(int $ownerId): Collection
+    {
+        return $this->ownerScopedQuery(NetworkTag::query(), $ownerId)
+            ->orderBy('name')
+            ->get();
+    }
+
     /**
      * Gets all network tags and returns a unified Paginator instance.
      */
