@@ -52,7 +52,7 @@ class HomeControllerTest extends TestCase
         $response->assertDontSee($unpublished->publicUrl());
     }
 
-    public function test_public_list_links_open_in_the_same_tab_and_a_missing_description_renders_a_slash(): void
+    public function test_public_list_links_open_in_the_same_tab_and_a_missing_description_renders_a_dash(): void
     {
         $owner = User::withoutEvents(fn (): User => User::factory()->create());
         $list = FilterList::factory()->create([
@@ -68,7 +68,7 @@ class HomeControllerTest extends TestCase
             '<a href="'.$list->publicUrl().'" title="'.$list->publicUrl().'" class=',
             false
         );
-        $response->assertSee('>/</td>', false);
+        $response->assertSee('>-</td>', false);
     }
 
     public function test_landing_page_shows_at_most_ten_public_lists(): void

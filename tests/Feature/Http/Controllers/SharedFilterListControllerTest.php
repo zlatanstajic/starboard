@@ -421,6 +421,35 @@ class SharedFilterListControllerTest extends TestCase
         $response->assertDontSee('data-clear-shared-filters" href', false);
     }
 
+    public function test_filter_panel_starts_collapsed_behind_its_own_storage_key(): void
+    {
+        [$list] = $this->createListContext();
+
+        $response = $this->get(route('filter-lists.show', $list->hash));
+
+        $response->assertOk();
+        $response->assertSee('showFilters: false', false);
+        $response->assertSee("localStorage.getItem('show_filters_shared_list')", false);
+        $response->assertSee("localStorage.setItem('show_filters_shared_list'", false);
+        $response->assertSee('x-show="showFilters"', false);
+        // The authenticated Filter Lists page keeps its own key.
+        $response->assertDontSee('show_filters_filter_lists', false);
+    }
+
+    public function test_the_toggle_sits_in_the_header_above_the_filter_form(): void
+    {
+        [$list] = $this->createListContext();
+
+        $response = $this->get(route('filter-lists.show', $list->hash));
+
+        $response->assertOk();
+        $response->assertSeeInOrder([
+            $list->name,
+            'data-filter-toggle',
+            'data-shared-list-filters',
+        ], false);
+    }
+
     public function test_only_the_bare_hash_token_resolves_the_list(): void
     {
         [$list] = $this->createListContext();

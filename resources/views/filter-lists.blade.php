@@ -77,7 +77,7 @@
                                                 <span class="rounded bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-300">{{ __('messages.filter_list.unpublished_status') }}</span>
                                             @endif
                                         </td>
-                                        <td class="px-6 py-4" data-col="description" x-show="columns.description">{{ $filterList->description ? Str::limit($filterList->description, 45, '...') : '/' }}</td>
+                                        <td class="px-6 py-4" data-col="description" x-show="columns.description">{{ $filterList->description ? Str::limit($filterList->description, 45, '...') : '-' }}</td>
                                         <td class="px-6 py-4" data-col="filters" x-show="columns.filters">
                                             @forelse($describedFilters[$filterList->id] ?? [] as $describedFilter)
                                                 <span class="mb-1 mr-1 inline-block whitespace-nowrap rounded bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300">
@@ -85,7 +85,7 @@
                                                     {{ Str::limit($describedFilter['value'], 30, '...') }}
                                                 </span>
                                             @empty
-                                                /
+                                                -
                                             @endforelse
                                         </td>
                                         <td class="whitespace-nowrap px-6 py-4 text-xs" data-col="timestamps" x-show="columns.timestamps" title="{{ $filterList->created_at }} / {{ $filterList->updated_at }}">{{ $filterList->created_at_short }} / {{ $filterList->updated_at_short }}</td>

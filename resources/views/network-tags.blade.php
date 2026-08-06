@@ -80,11 +80,11 @@
                                             </a>
                                         </td>
                                         <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white"
-                                            title="{{ $tag->description ?? '/' }}"
+                                            title="{{ $tag->description ?? '-' }}"
                                             data-col="description"
                                             x-show="columns.description"
                                         >
-                                            {{ $tag->description ? Str::limit($tag->description, 55, '...') : '/' }}
+                                            {{ $tag->description ? Str::limit($tag->description, 55, '...') : '-' }}
                                         </td>
                                         <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white" data-col="profiles" x-show="columns.profiles">
                                             {{ $tag->network_profiles_count }}

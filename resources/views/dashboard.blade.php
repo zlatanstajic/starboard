@@ -333,7 +333,7 @@
                                                 {{ Str::limit($profile->networkTags->pluck('name')->sort()->implode(', '), 25, '...') }}
                                             </td>
                                         @else
-                                            <td class="px-6 py-4" data-col="tags" x-show="columns.tags" title="/">/</td>
+                                            <td class="px-6 py-4" data-col="tags" x-show="columns.tags" title="-">-</td>
                                         @endif
 
                                         <td class="px-6 py-4 text-center" data-col="status" x-show="columns.status">

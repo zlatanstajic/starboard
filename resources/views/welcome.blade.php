@@ -67,7 +67,7 @@
                                     <th class="whitespace-nowrap px-6 py-4 font-medium text-gray-900 dark:text-white" scope="row">
                                         <a href="{{ $publicFilterList->publicUrl() }}" title="{{ $publicFilterList->publicUrl() }}" class="text-indigo-600 hover:underline dark:text-indigo-400">{{ $publicFilterList->name }}</a>
                                     </th>
-                                    <td class="px-6 py-4">{{ $publicFilterList->description ?: '/' }}</td>
+                                    <td class="px-6 py-4">{{ $publicFilterList->description ?: '-' }}</td>
                                     <td class="whitespace-nowrap px-6 py-4">{{ $publicFilterList->createdAtShort }}</td>
                                 </tr>
                             @empty
