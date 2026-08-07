@@ -214,10 +214,38 @@ class FilterListControllerTest extends TestCase
             'filter' => ['search' => 'needle', 'unknown' => 'remove'],
             'sort' => '-username',
         ]));
-        $response->assertSessionHas('published_filter_list');
+        $response->assertSessionHas('saved_filter_list');
         $list = FilterList::query()->where('name', 'Published list')->firstOrFail();
         $this->assertSame(url('/lists/'.$list->hash), $list->publicUrl());
         $this->assertEquals(['filter' => ['search' => 'needle'], 'sort' => '-username'], $list->filters);
+        $this->assertFalse($list->is_published);
+        $this->assertNull($list->published_at);
+    }
+
+    public function test_store_publishes_when_the_checkbox_is_ticked(): void
+    {
+        $response = $this->post(
+            route('filter-lists.store', ['filter' => ['search' => 'needle']]),
+            ['name' => 'Published list', 'is_published' => '1']
+        );
+
+        $response->assertRedirect();
+        $response->assertSessionHas('saved_filter_list');
+        $list = FilterList::query()->where('name', 'Published list')->firstOrFail();
+        $this->assertTrue($list->is_published);
+        $this->assertNotNull($list->published_at);
+    }
+
+    public function test_store_leaves_the_public_url_unreachable_until_published(): void
+    {
+        $this->post(
+            route('filter-lists.store', ['filter' => ['search' => 'needle']]),
+            ['name' => 'Private saved list']
+        )->assertRedirect();
+        $list = FilterList::query()->where('name', 'Private saved list')->firstOrFail();
+
+        $this->post(route('logout'))->assertRedirect();
+        $this->get($list->publicUrl())->assertNotFound();
     }
 
     public function test_store_ignores_a_submitted_slug(): void
@@ -260,6 +288,37 @@ class FilterListControllerTest extends TestCase
 
         $this->assertTrue($list->refresh()->is_published);
         $this->assertNotSame('Original1234', $list->hash);
+    }
+
+    public function test_update_first_publication_keeps_the_create_time_hash(): void
+    {
+        $list = FilterList::factory()->create([
+            'user_id' => $this->user->id,
+            'hash' => 'Original1234',
+            'is_published' => false,
+            'published_at' => null,
+        ]);
+
+        $this->put(route('filter-lists.update', $list), [
+            'name' => $list->name,
+            'is_published' => '1',
+        ])->assertRedirect();
+
+        $list->refresh();
+        $this->assertSame('Original1234', $list->hash);
+        $this->assertTrue($list->is_published);
+        $this->assertNotNull($list->published_at);
+    }
+
+    public function test_index_edit_modal_labels_the_published_checkbox_without_instructions(): void
+    {
+        FilterList::factory()->create(['user_id' => $this->user->id]);
+
+        $response = $this->get(route('filter-lists.index'));
+
+        $response->assertOk();
+        $response->assertSee(__('messages.filter_list.published_label'));
+        $response->assertDontSee('uncheck to unpublish');
     }
 
     public function test_destroy_soft_deletes_the_owned_list(): void

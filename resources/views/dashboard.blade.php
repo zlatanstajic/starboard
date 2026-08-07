@@ -272,10 +272,10 @@
                         </button>
 
                         @if(request()->filled('filter') || request()->filled('sort'))
-                            <button type="button" data-publish-filter-list @click="$dispatch('open-publish-list-modal')"
+                            <button type="button" data-save-filter-list @click="$dispatch('open-save-list-modal')"
                                 class="inline-flex w-28 shrink-0 items-center justify-center rounded-lg border border-transparent bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300">
                                 <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                                {{ __('messages.filter_list.publish') }}
+                                {{ __('messages.default.save') }}
                             </button>
                         @endif
                     </div>
@@ -548,18 +548,18 @@
             message="{{ __('messages.network_profile.delete_network_profile_message') }}"
         />
 
-        <x-publish-modal />
+        <x-save-modal />
 
-        @if(session('published_filter_list'))
+        @if(session('saved_filter_list'))
             <div x-data="{ isOpen: false }" x-init="isOpen = true" x-show="isOpen" x-cloak @keydown.escape.window="isOpen = false"
-                class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4" role="dialog" aria-modal="true" aria-label="{{ __('messages.filter_list.published') }}">
+                class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4" role="dialog" aria-modal="true" aria-label="{{ __('messages.filter_list.saved') }}">
                 <div class="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800" @click.away="isOpen = false">
-                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ __('messages.filter_list.published') }}</h3>
-                    <p class="mb-4 mt-1 text-sm text-gray-600 dark:text-gray-300">{{ session('published_filter_list.name') }}</p>
-                    <x-copy-link :url="session('published_filter_list.url')" />
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ __('messages.filter_list.saved') }}</h3>
+                    <p class="mb-4 mt-1 text-sm text-gray-600 dark:text-gray-300">{{ session('saved_filter_list.name') }}</p>
+                    <x-copy-link :url="session('saved_filter_list.url')" />
                     <div class="mt-6 flex items-center justify-end gap-3">
                         <a href="{{ route('filter-lists.index') }}" class="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">{{ __('messages.filter_list.manage') }}</a>
-                        <button type="button" @click="isOpen = false" class="rounded-lg bg-gray-100 px-4 py-2 text-sm hover:bg-gray-200 dark:bg-gray-700 dark:text-white">{{ __('messages.default.cancel') }}</button>
+                        <button type="button" @click="isOpen = false" class="inline-flex justify-center px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg hover:bg-gray-200 transition-colors hover:text-black">{{ __('messages.default.cancel') }}</button>
                     </div>
                 </div>
             </div>

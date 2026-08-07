@@ -61,7 +61,7 @@ class FilterListController extends Controller
     {
         try {
             $filterList = $this->filterListService->create($request->validated());
-            session()->flash('published_filter_list', [
+            session()->flash('saved_filter_list', [
                 'name' => $filterList->name,
                 'url' => $filterList->publicUrl(),
             ]);
@@ -87,7 +87,7 @@ class FilterListController extends Controller
             if ($wasPublished && ! $shouldPublish) {
                 $this->filterListService->unpublish($filterList);
             } elseif (! $wasPublished && $shouldPublish) {
-                $this->filterListService->republish($filterList);
+                $this->filterListService->publish($filterList);
             }
         } catch (Exception $e) {
             $this->handleException($e);

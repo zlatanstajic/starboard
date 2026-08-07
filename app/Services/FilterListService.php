@@ -62,6 +62,13 @@ class FilterListService
         return $this->filterListRepository->setPublished($filterList, false);
     }
 
+    public function publish(FilterList $filterList): FilterList
+    {
+        return $filterList->published_at === null
+            ? $this->filterListRepository->setPublished($filterList, true)
+            : $this->republish($filterList);
+    }
+
     public function republish(FilterList $filterList): FilterList
     {
         return $this->filterListRepository->setPublished(

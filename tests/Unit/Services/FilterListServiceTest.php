@@ -115,6 +115,34 @@ class FilterListServiceTest extends TestCase
         $this->assertSame($list, $this->service->republish($list));
     }
 
+    public function test_publish_reuses_the_hash_for_a_never_published_list(): void
+    {
+        $list = new FilterList([
+            'hash' => 'Original1234',
+            'published_at' => null,
+        ]);
+        $this->repository->shouldReceive('mintHash')->never();
+        $this->repository->shouldReceive('setPublished')->once()->with($list, true)->andReturn($list);
+
+        $this->assertSame($list, $this->service->publish($list));
+    }
+
+    public function test_publish_mints_a_fresh_hash_for_a_previously_published_list(): void
+    {
+        $list = new FilterList([
+            'hash' => 'Original1234',
+            'published_at' => now()->subDay(),
+        ]);
+        $this->repository->shouldReceive('mintHash')->once()->andReturn('FreshHash123');
+        $this->repository
+            ->shouldReceive('setPublished')
+            ->once()
+            ->with($list, true, 'FreshHash123')
+            ->andReturn($list);
+
+        $this->assertSame($list, $this->service->publish($list));
+    }
+
     public function test_describe_filters_labels_every_supported_key_and_the_sort(): void
     {
         $list = new FilterList(['filters' => [

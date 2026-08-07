@@ -51,6 +51,22 @@ class FilterListRepositoryTest extends TestCase
         ]);
 
         $this->assertSame('FreshHash123', $list->hash);
+        $this->assertFalse($list->is_published);
+        $this->assertNull($list->published_at);
+    }
+
+    public function test_create_with_a_published_flag_stamps_published_at(): void
+    {
+        $owner = User::withoutEvents(fn (): User => User::factory()->create());
+        $this->actingAs($owner);
+
+        $list = $this->repository->upsert([
+            'user_id' => $owner->id,
+            'name' => 'Published list',
+            'filters' => ['filter' => ['is_public' => '1']],
+            'is_published' => true,
+        ]);
+
         $this->assertTrue($list->is_published);
         $this->assertNotNull($list->published_at);
     }

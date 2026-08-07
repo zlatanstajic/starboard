@@ -13,6 +13,7 @@ final class CreateFilterListRequest extends FilterListRequest
     {
         return array_merge($this->baseRules(), [
             'filters' => ['required', 'array', 'min:1'],
+            'is_published' => ['boolean'],
         ]);
     }
 
@@ -30,6 +31,7 @@ final class CreateFilterListRequest extends FilterListRequest
     {
         $this->merge([
             'filters' => resolve(FilterListService::class)->sanitizeFilters($this->query()),
+            'is_published' => filter_var($this->input('is_published', false), FILTER_VALIDATE_BOOLEAN),
         ]);
     }
 }

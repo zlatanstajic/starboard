@@ -133,7 +133,7 @@
             <div class="flex items-center gap-2">
                 <input type="hidden" name="is_published" :value="data.isPublished ? 1 : 0">
                 <input id="edit-filter-list-published" type="checkbox" x-model="data.isPublished" class="h-4 w-4 rounded border-gray-300 text-indigo-600">
-                <label for="edit-filter-list-published" class="text-sm text-gray-700 dark:text-gray-300">{{ __('messages.filter_list.keep_published') }}</label>
+                <label for="edit-filter-list-published" class="text-sm text-gray-700 dark:text-gray-300">{{ __('messages.filter_list.published_label') }}</label>
             </div>
         </x-edit-modal>
 

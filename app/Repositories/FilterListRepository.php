@@ -156,10 +156,12 @@ class FilterListRepository extends Repository
 
     private function create(array $data): FilterList
     {
+        $published = (bool) ($data['is_published'] ?? false);
+
         return FilterList::query()->create(array_merge($data, [
             'hash' => $this->mintHash(),
-            'is_published' => true,
-            'published_at' => now(),
+            'is_published' => $published,
+            'published_at' => $published ? now() : null,
         ]));
     }
 
