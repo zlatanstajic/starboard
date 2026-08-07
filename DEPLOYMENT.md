@@ -6,12 +6,14 @@ by default and must remain disabled during the initial deployment.
 
 ## Prerequisites
 
-- PHP 8.3 with the application-required extensions, including SimpleXML.
+- PHP 8.3 with the application-required extensions.
 - A non-`array` session driver so fetch batch ownership survives requests.
 - A supported queue connection and a worker capable of consuming the dedicated
   `youtube` queue.
-- Outbound HTTPS access from the deployment host. Do not assume it works until
-  the operator-only probe succeeds from production egress.
+- Outbound HTTPS access to `www.googleapis.com` from the deployment host.
+- A server-only Google API key with YouTube Data API v3 enabled and appropriate
+  API/IP restrictions. Do not assume it works until the operator-only probe
+  succeeds from production egress.
 
 ## Deploy code, schema, and assets
 
@@ -21,7 +23,9 @@ by default and must remain disabled during the initial deployment.
    ```dotenv
    YOUTUBE_FETCH_ENABLED=false
    YOUTUBE_FETCH_UI_ENABLED=false
+   YOUTUBE_DATA_API_KEY=replace-with-server-only-secret
    YOUTUBE_FETCH_TRANSPORT=laravel-http
+   YOUTUBE_FETCH_MAX_PAGES=10
    YOUTUBE_FETCH_QUEUE=youtube
    ```
 
@@ -80,7 +84,7 @@ other queues.
    `docs/YOUTUBE_FETCH_RUNBOOK.md` for one owned profile.
 5. Enable execution only, clear config cache, restart workers, and fetch one
    canary profile through an operator-controlled path.
-6. Verify audit rows, physical request accounting, cached channel-ID reuse, and
+6. Verify audit rows, physical request accounting, cached channel-ID lookup, and
    unchanged `new_items` values on failures.
 7. Run one small filtered batch.
 8. Enable the UI flag, rebuild configuration cache, and monitor classified
@@ -121,6 +125,6 @@ demand it. See the runbook for example read-only queries.
 | Control is absent | Both execution and UI flags, cached configuration, rebuilt assets. |
 | Control is disabled | UTC budget row: `blocked_until` and `reserved_requests`. |
 | Batch remains pending | Dedicated worker queue name, cron path/PHP binary, and `jobs` rows. |
-| Counts do not change | Classified run outcome; malformed/blocked/error responses intentionally preserve the previous count. |
+| Counts do not change | Classified run outcome; malformed, quota, pagination-cap, and error responses intentionally preserve the previous count and uncached channel ID. |
 | Jobs fail repeatedly | `failed_jobs`, worker timeout, and `retry_after > job timeout`. |
 | Polling loses a batch | Session persistence and matching `youtube_fetch_batches.user_id`. |

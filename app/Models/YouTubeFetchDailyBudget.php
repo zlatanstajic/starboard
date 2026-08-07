@@ -9,6 +9,7 @@ use Illuminate\Support\Carbon;
 use Override;
 
 /**
+ * @property string|null $block_reason
  * @property int $reserved_requests
  * @property ?Carbon $blocked_until
  */

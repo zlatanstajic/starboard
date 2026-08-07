@@ -5,11 +5,12 @@ declare(strict_types=1);
 return [
     'execution_enabled' => (bool) env('YOUTUBE_FETCH_ENABLED', false),
     'ui_enabled' => (bool) env('YOUTUBE_FETCH_UI_ENABLED', false),
+    'api_key' => env('YOUTUBE_DATA_API_KEY', ''),
     'transport' => env('YOUTUBE_FETCH_TRANSPORT', 'laravel-http'),
     'connect_timeout' => (int) env('YOUTUBE_FETCH_CONNECT_TIMEOUT', 5),
     'request_timeout' => (int) env('YOUTUBE_FETCH_REQUEST_TIMEOUT', 15),
     'job_timeout' => (int) env('YOUTUBE_FETCH_JOB_TIMEOUT', 45),
-    'max_redirects' => (int) env('YOUTUBE_FETCH_MAX_REDIRECTS', 2),
+    'max_pages' => (int) env('YOUTUBE_FETCH_MAX_PAGES', 10),
     'max_response_bytes' => (int) env('YOUTUBE_FETCH_MAX_RESPONSE_BYTES', 2097152),
     'retry' => [
         'attempts' => (int) env('YOUTUBE_FETCH_RETRY_ATTEMPTS', 3),

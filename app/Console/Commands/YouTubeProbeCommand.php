@@ -13,7 +13,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
 #[Signature('youtube:probe {--profile= : Network profile ID} {--confirm-live : Confirm that outbound YouTube access is intended}')]
-#[Description('Perform an operator-approved live YouTube transport probe for one profile')]
+#[Description('Perform an operator-approved live YouTube Data API v3 probe for one profile')]
 class YouTubeProbeCommand extends Command
 {
     /**

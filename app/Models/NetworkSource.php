@@ -12,11 +12,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Override;
 
 /**
+ * @property int $id
+ * @property int $user_id
  * @property string $url
  * @property ?string $icon
  */
 class NetworkSource extends Model
 {
+    /** @use HasFactory<\Database\Factories\NetworkSourceFactory> */
     use HasFactory, SoftDeletes;
 
     /**

@@ -17,6 +17,7 @@ use Override;
 
 /**
  * @property int $id
+ * @property int $network_source_id
  * @property int $user_id
  * @property string $username
  * @property ?string $youtube_channel_id
@@ -29,6 +30,7 @@ use Override;
  */
 class NetworkProfile extends Model
 {
+    /** @use HasFactory<\Database\Factories\NetworkProfileFactory> */
     use HasFactory, SoftDeletes;
 
     /**

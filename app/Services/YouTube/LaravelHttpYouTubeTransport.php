@@ -15,15 +15,29 @@ use Throwable;
 
 final class LaravelHttpYouTubeTransport implements YouTubeTransport
 {
+    /** @var list<string> */
+    private const array ALLOWED_PATHS = [
+        '/youtube/v3/channels',
+        '/youtube/v3/playlistItems',
+    ];
+
     public function fetch(YouTubeFetchRequest $request): YouTubeFetchResult
     {
+        $apiKey = config('youtube.api_key');
+
+        throw_if(! is_string($apiKey) || trim($apiKey) === '', YouTubeTransportException::class, 'The YouTube Data API key is not configured.');
+
+        throw_if($this->containsCredentialQueryParameter($request), YouTubeTransportException::class, 'YouTube API credentials must not be included in request URLs.');
+
+        throw_unless($this->isAllowedApiUrl($request->url), YouTubeTransportException::class, 'The YouTube Data API request URL is not allowed.');
+
         $startedAt = hrtime(true);
 
         try {
             $response = Http::withHeaders([
-                'User-Agent' => 'Starboard YouTube Feed Fetcher',
-                'Accept' => 'application/atom+xml, application/xml;q=0.9, text/html;q=0.8',
-                'Accept-Language' => 'en',
+                'User-Agent' => 'Starboard YouTube Data API Fetcher',
+                'Accept' => 'application/json',
+                'X-Goog-Api-Key' => trim($apiKey),
             ])->connectTimeout((int) config('youtube.connect_timeout'))
                 ->timeout((int) config('youtube.request_timeout'))
                 ->withOptions(['allow_redirects' => false])
@@ -73,5 +87,42 @@ final class LaravelHttpYouTubeTransport implements YouTubeTransport
         }
 
         return min($seconds, (int) config('youtube.retry.max_retry_after'));
+    }
+
+    private function isAllowedApiUrl(string $url): bool
+    {
+        $parts = parse_url($url);
+
+        return is_array($parts)
+            && ($parts['scheme'] ?? null) === 'https'
+            && ($parts['host'] ?? null) === 'www.googleapis.com'
+            && isset($parts['path'])
+            && in_array($parts['path'], self::ALLOWED_PATHS, true)
+            && ! isset($parts['user'], $parts['pass'], $parts['port'], $parts['query'], $parts['fragment']);
+    }
+
+    private function containsCredentialQueryParameter(YouTubeFetchRequest $request): bool
+    {
+        foreach (array_keys($request->query) as $name) {
+            if (strtolower($name) === 'key') {
+                return true;
+            }
+        }
+
+        $queryString = parse_url($request->url, PHP_URL_QUERY);
+
+        if (! is_string($queryString)) {
+            return false;
+        }
+
+        parse_str($queryString, $urlQuery);
+
+        foreach (array_keys($urlQuery) as $name) {
+            if (strtolower((string) $name) === 'key') {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

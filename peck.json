@@ -30,7 +30,9 @@
             "substrings",
             "runbook",
             "retryable",
-            "svg"
+            "svg",
+            "uncached",
+            "noncanonical"
         ],
         "paths": []
     }

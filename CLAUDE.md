@@ -45,7 +45,7 @@ php artisan test tests/Unit/Services/NetworkProfileServiceTest.php
 
 **Soft deletes + restore-on-create:** `NetworkProfile` uses `SoftDeletes`. The repository's `create()` restores a matching trashed record instead of inserting a duplicate; DB unique-constraint violations (SQLState `23000`) are caught and rethrown as domain exceptions (`app/Exceptions/<Domain>/*`).
 
-**YouTube "new items" is a batched queue flow:** `NetworkProfileService::fetchNewItems()` builds one `FetchYouTubeNewItemsJob` per YouTube-video profile, staggered by `FETCH_STAGGER_SECONDS` to avoid bot-like traffic, and dispatches them as a named `Bus::batch`. The `fetch` route is `throttle:6,1`; `fetch/status` polls batch progress. The job resolves a channel id then reads YouTube's Atom feed (`feeds/videos.xml`) rather than scraping HTML.
+**YouTube "new items" is a batched queue flow:** `NetworkProfileService::fetchNewItems()` builds one `FetchYouTubeNewItemsJob` per YouTube-video profile, staggered by `FETCH_STAGGER_SECONDS`, and dispatches them as a named `Bus::batch`. The `fetch` route is `throttle:6,1`; `fetch/status` polls batch progress. The job uses a server-only YouTube Data API v3 key to resolve the channel's uploads playlist with `channels.list`, then pages `playlistItems.list`. API calls happen outside the final source/profile locking transaction; the channel ID and completed count are persisted atomically only if the profile snapshot remains valid.
 
 **Domain models:** `NetworkProfile` (a tracked account) belongs to a `User` and a `NetworkSource` (the platform, whose `url` holds a `{username}`/`{id}`/`{hash}`/`{uuid}` placeholder expanded by `profileUrl()`), and many-to-many with `NetworkTag`.
 

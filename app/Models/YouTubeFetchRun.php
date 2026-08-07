@@ -10,7 +10,9 @@ use Override;
 
 /**
  * @property int $duration_ms
+ * @property string|null $error
  * @property int|null $network_profile_id
+ * @property string|null $outcome
  * @property int $request_count
  * @property int $retry_count
  * @property int|null $youtube_fetch_batch_id

@@ -15,11 +15,12 @@ php artisan youtube:probe --profile=PROFILE_ID --confirm-live
 The profile must belong to a real application user. Record the date, host,
 release identifier, profile ID, outcome, HTTP status, effective transport,
 duration, and physical request count here after the production run. Do not paste
-response bodies, cookies, tokens, or redirect URLs.
+response bodies, credentials, tokens, or request URLs.
 
-If Laravel HTTP cannot obtain both a normal channel page and a valid Atom feed
-while an approved real browser can, stop rollout. Adding a browser-grade adapter
-or system dependency requires separate approval and a pinned deployment plan.
+The probe calls the YouTube Data API v3 `channels.list` and
+`playlistItems.list` endpoints. If either endpoint is unavailable from the
+production host, stop rollout and verify API enablement, key restrictions,
+quota, and egress before retrying.
 
 ## Configuration and defaults
 
@@ -27,11 +28,12 @@ or system dependency requires separate approval and a pinned deployment plan.
 |---|---:|---|
 | `YOUTUBE_FETCH_ENABLED` | `false` | Server-side execution gate checked by controller, service, and job. |
 | `YOUTUBE_FETCH_UI_ENABLED` | `false` | Dashboard visibility gate. |
+| `YOUTUBE_DATA_API_KEY` | none | Required server-only YouTube Data API v3 key. Never expose it to browser code or place it in a URL. |
 | `YOUTUBE_FETCH_TRANSPORT` | `laravel-http` | Only supported transport; other values fail closed. |
 | `YOUTUBE_FETCH_CONNECT_TIMEOUT` | `5` | Connection timeout in seconds. |
 | `YOUTUBE_FETCH_REQUEST_TIMEOUT` | `15` | Per-request timeout in seconds. |
 | `YOUTUBE_FETCH_JOB_TIMEOUT` | `45` | Worker job timeout. Queue `retry_after` must be greater. |
-| `YOUTUBE_FETCH_MAX_REDIRECTS` | `2` | Maximum manually guarded redirects. |
+| `YOUTUBE_FETCH_MAX_PAGES` | `10` | Maximum uploads-playlist pages accepted per profile. A remaining token fails without a partial write. |
 | `YOUTUBE_FETCH_MAX_RESPONSE_BYTES` | `2097152` | Maximum accepted response body. |
 | `YOUTUBE_FETCH_RETRY_ATTEMPTS` | `3` | Domain retries scheduled only by the job. |
 | `YOUTUBE_FETCH_RETRY_BASE_SECONDS` | `15` | Exponential backoff base. |
@@ -41,25 +43,30 @@ or system dependency requires separate approval and a pinned deployment plan.
 | `YOUTUBE_FETCH_BATCH_LIMIT` | `50` | Maximum filtered profiles per batch. |
 | `YOUTUBE_FETCH_STAGGER_SECONDS` | `5` | Delay between initially queued jobs. |
 | `YOUTUBE_FETCH_DAILY_REQUEST_LIMIT` | `500` | UTC physical request reservations per day. |
-| `YOUTUBE_FETCH_BLOCKED_COOLDOWN_SECONDS` | `3600` | Shared cooldown after consent/sign-in walls. |
+| `YOUTUBE_FETCH_BLOCKED_COOLDOWN_SECONDS` | `3600` | Shared cooldown after API quota exhaustion. |
 | `YOUTUBE_FETCH_QUEUE` | `youtube` | Dedicated queue name. |
 | `YOUTUBE_FETCH_LOG_CHANNEL` | `stack` | Structured terminal/retry log channel. |
 
 The Laravel HTTP adapter uses installed framework dependencies, disables
-automatic redirects/retries, and sends no static consent cookie.
+automatic redirects/retries, sends `Accept: application/json`, and authenticates
+only with the `X-Goog-Api-Key` header. Restrict the key to the YouTube Data API
+and the production server's egress IP where supported.
 
 ## Outcome actions
 
 | Outcome | Operator action |
 |---|---|
 | `success` | No action; verify counts only when investigating a report. |
-| `invalid_url`, `unsafe_redirect` | Correct the source template/profile; investigate attempted SSRF. |
-| `consent_required`, `sign_in_required` | Leave cooldown in place; verify production egress and probe before retrying. |
+| `configuration_failure` | Keep execution disabled; verify the server-only API key, API enablement, expiry, and restrictions. |
+| `invalid_url` | Correct the uncached profile's canonical HTTPS YouTube handle source template or username. |
 | `rate_limited` | Reduce batch size/frequency; honor the recorded retry delay. |
+| `api_quota_exhausted` | Leave the shared cooldown in place; inspect project quota before resuming. |
 | `transient_http_failure`, `transport_failure` | Inspect network/upstream health; bounded job retry is expected. |
 | `permanent_http_failure` | Correct profile/source or investigate upstream policy; no automatic retry. |
-| `channel_id_missing` | Verify the channel page still contains a stable channel ID. |
-| `malformed_feed` | Preserve count; inspect safe signals/status, never store/log the body. |
+| `channel_id_missing` | Verify the handle/channel ID and channel visibility. |
+| `uploads_playlist_missing` | Verify the channel response exposes an uploads playlist. |
+| `malformed_api_response` | Preserve count; inspect safe status/outcome signals, never store/log the body or provider message. |
+| `pagination_limit_exceeded` | Increase the cap only after reviewing quota and the profile's required history window. |
 | `request_budget_exhausted` | Wait for the next UTC day or approve a deliberate reset. |
 | `shared_circuit_open` | Wait until `blocked_until`; investigate the blocking outcome. |
 | `stale_profile` | Expected after concurrent profile/source edits; dispatch again if needed. |
@@ -86,7 +93,7 @@ SET blocked_until = NULL, block_reason = NULL
 WHERE budget_date = UTC_DATE();
 ```
 
-Do not decrement `reserved_requests` for timeouts, crashes, redirects, or failed
+Do not decrement `reserved_requests` for timeouts, crashes, or failed
 connections: reservation occurs before transmission and intentionally remains
 charged. Resetting the request count requires incident approval and evidence
 that reservations were erroneous.
@@ -125,7 +132,7 @@ ORDER BY started_at;
 
 Application logs should contain run/batch/profile identifiers, stage, outcome,
 status, transport, duration, request/retry counts, and delay. They must never
-contain bodies, cookies, tokens, credentials, or full redirect URLs.
+contain bodies, provider messages, tokens, credentials, or request URLs.
 
 ## Queue troubleshooting
 
@@ -136,11 +143,11 @@ contain bodies, cookies, tokens, credentials, or full redirect URLs.
    failed jobs while execution is enabled.
 5. Restart workers after config/code changes: `php artisan queue:restart`.
 6. Confirm session persistence and batch ownership if polling is inactive.
-7. Keep execution disabled while correcting repeated blocked or unsafe outcomes.
+7. Keep execution disabled while correcting repeated configuration or quota outcomes.
 
 ## Monitoring and retention
 
-Alert on elevated blocked, rate-limited, malformed-feed, transport-failure, and
+Alert on elevated quota, rate-limited, malformed-response, transport-failure, and
 unexpected-failure rates; budget usage approaching the configured limit; active
 batches older than the expected maximum; and queue depth/oldest-job age.
 
