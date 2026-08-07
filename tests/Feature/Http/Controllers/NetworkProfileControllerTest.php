@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Http\Controllers;
 
+use App\Models\FilterList;
 use App\Models\NetworkProfile;
 use App\Models\NetworkSource;
 use App\Models\NetworkTag;
 use App\Models\User;
+use App\Services\FilterListService;
 use App\Services\NetworkProfileService;
 use App\Services\NetworkSourceService;
 use Exception;
@@ -44,6 +46,12 @@ class NetworkProfileControllerTest extends TestCase
             'preserves non-leading at' => ['Mr@Beast', 'Mr@Beast'],
             'trims surrounding spaces' => ['  @MrBeast  ', 'MrBeast'],
             'trims spaces exposed after at' => ['@ MrBeast', 'MrBeast'],
+            'strips http prefix' => ['http://example.com/profile', 'example.com/profile'],
+            'strips https prefix' => ['https://example.com/profile', 'example.com/profile'],
+            'strips case-insensitive scheme' => ['HTTPS://Example.com/profile', 'Example.com/profile'],
+            'strips only one leading scheme' => ['https://https://example.com', 'https://example.com'],
+            'preserves non-leading scheme' => ['profile-https://example.com', 'profile-https://example.com'],
+            'trims spaces exposed after scheme' => ['https:// example.com/profile', 'example.com/profile'],
         ];
     }
 
@@ -56,6 +64,20 @@ class NetworkProfileControllerTest extends TestCase
             'strips single leading at' => ['@updated', 'updated'],
             'strips only one leading at' => ['@@updated', '@updated'],
             'trims surrounding spaces' => ['  @updated  ', 'updated'],
+            'strips http prefix' => ['http://example.com/updated', 'example.com/updated'],
+            'strips case-insensitive https prefix' => ['  HTTPS://Example.com/updated  ', 'Example.com/updated'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function bareUrlSchemeProvider(): array
+    {
+        return [
+            'http scheme' => ['http://'],
+            'https scheme' => ['https://'],
+            'case-insensitive scheme with whitespace' => ['  HTTPS://  '],
         ];
     }
 
@@ -138,6 +160,159 @@ class NetworkProfileControllerTest extends TestCase
         foreach (['number', 'tags', 'status', 'favorite', 'visits', 'timestamps', 'actions'] as $key) {
             $response->assertSee('x-model="columns.'.$key.'"', false);
         }
+    }
+
+    public function test_dashboard_renders_stable_height_tag_filters(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->get(route('dashboard'));
+
+        $response->assertOk();
+        $response->assertSeeInOrder([
+            'data-tag-filter="included"',
+            'id="filter-tags-select"',
+            'data-tag-filter="excluded"',
+            'id="filter-exclude-tags-select"',
+        ], false);
+    }
+
+    public function test_dashboard_places_the_tags_filter_between_sort_and_descriptions(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->get(route('dashboard'));
+
+        $response->assertOk();
+
+        // First row holds the source/visits/time/status/favourite selects; the second row runs
+        // sort -> tags -> descriptions -> search, so the tags filter must follow the sort select.
+        $response->assertSeeInOrder([
+            'data-network-source-filter',
+            'aria-label="'.__('messages.network_profile.filter.all_visits').'"',
+            'aria-label="'.__('messages.network_profile.filter.all_statuses').'"',
+            'aria-label="'.__('messages.default.default_sort').'"',
+            'aria-label="'.__('messages.network_profile.filter.all_tags').'"',
+            'aria-label="'.__('messages.network_profile.filter.all_descriptions').'"',
+            'id="search-form"',
+        ], false);
+    }
+
+    public function test_dashboard_applies_a_saved_filter_list_capture_from_the_generated_url(): void
+    {
+        $user = User::factory()->create();
+        $source = NetworkSource::factory()->create(['user_id' => $user->id]);
+        $matchingA = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $source->id,
+            'username' => 'needle-alpha',
+        ]);
+        $matchingB = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $source->id,
+            'username' => 'needle-beta',
+        ]);
+        NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $source->id,
+            'username' => 'unrelated-profile',
+        ]);
+        $filterList = FilterList::factory()->create([
+            'user_id' => $user->id,
+            'is_published' => false,
+            'published_at' => null,
+            'filters' => [
+                'filter' => ['search' => 'needle', 'network_source_id' => (string) $source->id],
+                'sort' => '-username',
+            ],
+        ]);
+        $applyUrl = resolve(FilterListService::class)->buildDashboardUrl($filterList);
+
+        $response = $this->actingAs($user)->get($applyUrl);
+
+        $response->assertOk();
+        $response->assertDontSee('unrelated-profile');
+        // '-username' sorts descending, so beta precedes alpha.
+        $response->assertSeeInOrder([$matchingB->username, $matchingA->username], false);
+
+        // This test class runs outside a transaction, so the seeded list is
+        // removed by hand to keep it out of the cross-user published read.
+        $filterList->forceDelete();
+    }
+
+    public function test_dashboard_apply_url_keeps_private_and_excluded_source_profiles_visible(): void
+    {
+        $user = User::factory()->create();
+        $excludedSource = NetworkSource::factory()->create([
+            'user_id' => $user->id,
+            'exclude_from_dashboard' => true,
+        ]);
+        $private = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $excludedSource->id,
+            'username' => 'needle-private',
+            'is_public' => false,
+        ]);
+        $filterList = FilterList::factory()->create([
+            'user_id' => $user->id,
+            'is_published' => false,
+            'published_at' => null,
+            'filters' => [
+                // The source is pinned, which is what lifts the dashboard's own
+                // implicit exclude_from_dashboard narrowing (see getAll()).
+                'filter' => ['search' => 'needle', 'network_source_id' => (string) $excludedSource->id],
+            ],
+        ]);
+        $applyUrl = resolve(FilterListService::class)->buildDashboardUrl($filterList);
+
+        $response = $this->actingAs($user)->get($applyUrl);
+
+        $response->assertOk();
+        // No is_public narrowing is inherited from the public list page.
+        $response->assertSee($private->username);
+
+        $filterList->forceDelete();
+    }
+
+    public function test_dashboard_apply_url_round_trips_an_array_valued_tags_capture(): void
+    {
+        $user = User::factory()->create();
+        $source = NetworkSource::factory()->create(['user_id' => $user->id]);
+        $tagA = NetworkTag::factory()->create(['user_id' => $user->id]);
+        $tagB = NetworkTag::factory()->create(['user_id' => $user->id]);
+        // The tags filter is strict AND, so only the profile carrying both tags
+        // may match; the single-tag profile is what a comma-joined regression
+        // (both ids collapsed into one scalar) would wrongly pull in.
+        $bothTags = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $source->id,
+            'username' => 'tagged-with-both',
+        ]);
+        $bothTags->networkTags()->attach([$tagA->id, $tagB->id]);
+        $oneTag = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $source->id,
+            'username' => 'tagged-with-one',
+        ]);
+        $oneTag->networkTags()->attach($tagA->id);
+        $filterList = FilterList::factory()->create([
+            'user_id' => $user->id,
+            'is_published' => false,
+            'published_at' => null,
+            'filters' => ['filter' => ['tags' => [(string) $tagA->id, (string) $tagB->id]]],
+        ]);
+        $applyUrl = resolve(FilterListService::class)->buildDashboardUrl($filterList);
+
+        parse_str((string) parse_url($applyUrl, PHP_URL_QUERY), $query);
+        $this->assertSame([(string) $tagA->id, (string) $tagB->id], $query['filter']['tags']);
+
+        $response = $this->actingAs($user)->get($applyUrl);
+
+        $response->assertOk();
+        $response->assertSee('tagged-with-both');
+        $response->assertDontSee('tagged-with-one');
+
+        $filterList->forceDelete();
     }
 
     public function test_index_handles_exception_and_redirects(): void
@@ -465,6 +640,27 @@ class NetworkProfileControllerTest extends TestCase
         $response->assertSessionHasErrors('username');
     }
 
+    #[DataProvider('bareUrlSchemeProvider')]
+    public function test_store_rejects_bare_url_scheme_and_does_not_call_service(string $username): void
+    {
+        $user = User::factory()->create();
+        $networkSource = NetworkSource::factory()->create();
+
+        $service = Mockery::mock(NetworkProfileService::class);
+        $service->shouldNotReceive('create');
+
+        $this->app->instance(NetworkProfileService::class, $service);
+
+        $response = $this->actingAs($user)->post(route('network-profiles.store'), [
+            'network_source_id' => $networkSource->id,
+            'username' => $username,
+            'is_public' => true,
+            'is_favorite' => false,
+        ]);
+
+        $response->assertSessionHasErrors('username');
+    }
+
     public function test_store_rejects_non_string_username_and_does_not_call_service(): void
     {
         $user = User::factory()->create();
@@ -553,6 +749,26 @@ class NetworkProfileControllerTest extends TestCase
 
         $networkProfile->refresh();
         $this->assertEquals('original', $networkProfile->username);
+    }
+
+    #[DataProvider('bareUrlSchemeProvider')]
+    public function test_update_rejects_bare_url_scheme_and_preserves_value(string $username): void
+    {
+        $user = User::factory()->create();
+        $networkSource = NetworkSource::factory()->create();
+        $networkProfile = NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'network_source_id' => $networkSource->id,
+            'username' => 'original',
+        ]);
+
+        $response = $this->actingAs($user)->put(
+            route('network-profiles.update', ['networkProfile' => $networkProfile->id]),
+            ['username' => $username]
+        );
+
+        $response->assertSessionHasErrors('username');
+        $this->assertSame('original', $networkProfile->refresh()->username);
     }
 
     public function test_destroy_still_soft_deletes_with_inherited_prepare_for_validation(): void

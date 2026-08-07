@@ -33,7 +33,8 @@ class NetworkSourceController extends Controller
         try {
             $networkSources = $this->networkSourceService->getAll(
                 paginate: true,
-                withCount: true
+                withCount: true,
+                filterable: true
             );
 
             return $this->handleView(compact('networkSources'));

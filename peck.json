@@ -10,6 +10,7 @@
             "tok",
             "tiktok",
             "dropdown",
+            "dropdowns",
             "nav",
             "js",
             "postcss",
@@ -32,7 +33,21 @@
             "retryable",
             "svg",
             "uncached",
-            "noncanonical"
+            "noncanonical",
+            "backfills",
+            "svg",
+            "imdb",
+            "shareable",
+            "unpublish",
+            "unpublished",
+            "slug",
+            "seo",
+            "noindex",
+            "unpublishing",
+            "memoized",
+            "unaddressable",
+            "deterministically",
+            "erroring"
         ],
         "paths": []
     }

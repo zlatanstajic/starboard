@@ -790,6 +790,30 @@ class NetworkProfileRepositoryTest extends TestCase
         $this->assertSame('tech_guru', $results->first()->username);
     }
 
+    public function test_get_all_search_filter_handles_a_comma_in_the_term(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $unique = uniqid();
+
+        NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'username' => 'alpha,beta'.$unique,
+        ]);
+
+        NetworkProfile::factory()->create([
+            'user_id' => $user->id,
+            'username' => 'gamma'.$unique,
+        ]);
+
+        // Spatie explodes comma-separated filter values into an array.
+        $this->requestSearch('alpha,beta'.$unique);
+        $usernames = $this->repository->getAll()->pluck('username')->toArray();
+
+        $this->assertContains('alpha,beta'.$unique, $usernames);
+        $this->assertNotContains('gamma'.$unique, $usernames);
+    }
+
     public function test_get_all_filters_by_description_presence(): void
     {
         $user = User::factory()->create();

@@ -25,6 +25,7 @@ class DatabaseTableNamesEnumTest extends TestCase
             'youtube_fetch_batches' => [DatabaseTableNamesEnum::youtube_fetch_batches, 'youtube_fetch_batches'],
             'youtube_fetch_runs' => [DatabaseTableNamesEnum::youtube_fetch_runs, 'youtube_fetch_runs'],
             'youtube_fetch_daily_budgets' => [DatabaseTableNamesEnum::youtube_fetch_daily_budgets, 'youtube_fetch_daily_budgets'],
+            'filter_lists' => [DatabaseTableNamesEnum::filter_lists, 'filter_lists'],
         ];
     }
 
@@ -36,7 +37,7 @@ class DatabaseTableNamesEnumTest extends TestCase
 
     public function test_cases_count_matches_expected(): void
     {
-        $this->assertCount(9, DatabaseTableNamesEnum::cases());
+        $this->assertCount(10, DatabaseTableNamesEnum::cases());
     }
 
     public function test_can_be_created_from_string_value(): void

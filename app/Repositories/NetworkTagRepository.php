@@ -7,20 +7,42 @@ namespace App\Repositories;
 use App\Exceptions\NetworkTag\NetworkTagDuplicationException;
 use App\Models\NetworkTag;
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Spatie\QueryBuilder\AllowedFilter;
 
 class NetworkTagRepository extends Repository
 {
+    /** @return Collection<int, NetworkTag> */
+    public function getAllForOwner(int $ownerId): Collection
+    {
+        return $this->ownerScopedQuery(NetworkTag::query(), $ownerId)
+            ->orderBy('name')
+            ->get();
+    }
+
     /**
      * Gets all network tags and returns a unified Paginator instance.
      */
     public function getAll(
         bool $paginate = false,
         string $defaultSort = 'name',
-        bool $withCount = false
+        bool $withCount = false,
+        bool $filterable = false
     ): LengthAwarePaginator {
-        $query = $this->buildStandardQuery(NetworkTag::class)
-            ->defaultSort($defaultSort);
+        if ($filterable) {
+            $query = $this->buildStandardQuery(
+                NetworkTag::class,
+                filters: $this->additionalAllowedFilters()
+            )
+                ->defaultSort($defaultSort);
+        } else {
+            $query = NetworkTag::query()->orderBy(
+                ltrim($defaultSort, '-'),
+                str_starts_with($defaultSort, '-') ? 'desc' : 'asc'
+            );
+        }
 
         if ($withCount) {
             $query = $query->withCount('networkProfiles');
@@ -79,6 +101,20 @@ class NetworkTagRepository extends Repository
     }
 
     /**
+     * The callback filters layered on top of NetworkTag's own
+     * ALLOWED_FILTERS (which buildStandardQuery merges in automatically).
+     *
+     * @return list<AllowedFilter>
+     */
+    private function additionalAllowedFilters(): array
+    {
+        return [
+            AllowedFilter::callback('search', $this->filterSearch(...)),
+            AllowedFilter::scope('profiles', 'byProfiles'),
+        ];
+    }
+
+    /**
      * Gets network tag by name from trashed ones.
      */
     private function getByName(
@@ -123,5 +159,15 @@ class NetworkTagRepository extends Repository
         $networkTag->update($data);
 
         return $networkTag;
+    }
+
+    /**
+     * Filter query by search term in name or description.
+     *
+     * @param  string|array<int, string>  $value
+     */
+    private function filterSearch(Builder $query, string|array $value): void
+    {
+        $this->applySearchFilter($query, ['name', 'description'], $value);
     }
 }

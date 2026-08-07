@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\NetworkSource;
 use App\Repositories\NetworkSourceRepository;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class NetworkSourceService
@@ -24,9 +25,16 @@ class NetworkSourceService
      */
     public function getAll(
         bool $paginate = false,
-        bool $withCount = false
+        bool $withCount = false,
+        bool $filterable = false
     ): LengthAwarePaginator {
-        return $this->networkSourceRepository->getAll($paginate, 'name', $withCount);
+        return $this->networkSourceRepository->getAll($paginate, 'name', $withCount, $filterable);
+    }
+
+    /** @return Collection<int, NetworkSource> */
+    public function getAllForOwner(int $ownerId): Collection
+    {
+        return $this->networkSourceRepository->getAllForOwner($ownerId);
     }
 
     /**

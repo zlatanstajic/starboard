@@ -47,6 +47,39 @@
                 <a href="https://www.producthunt.com/products/starboard/launches/starboard-2?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-starboard-2" target="_blank" rel="noopener noreferrer"><img alt="Starboard - Surf the Web like a pro | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1078486&amp;theme=dark&amp;t=1772649373270"></a>
             </div>
 
+            <section id="public-lists" class="max-w-7xl mx-auto mt-7 p-1" aria-labelledby="public-lists-section-title">
+                <h2 id="public-lists-section-title" class="text-2xl font-bold m-4 px-12 text-gray-900 text-center uppercase dark:text-gray-100">{{ __('messages.welcome.public_lists') }}</h2>
+
+                <p class="mx-auto mb-8 max-w-3xl px-4 text-center text-gray-600 dark:text-gray-400">{{ __('messages.welcome.public_lists_description') }}</p>
+
+                <div class="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-[#3E3E3A] dark:bg-gray-800">
+                    <table class="min-w-full text-left text-sm text-gray-500 dark:text-gray-400">
+                        <thead class="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                            <tr>
+                                <th class="px-6 py-3" scope="col">{{ __('messages.default.name') }}</th>
+                                <th class="px-6 py-3" scope="col">{{ __('messages.default.description') }}</th>
+                                <th class="px-6 py-3" scope="col">{{ __('messages.default.created') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($publicFilterLists as $publicFilterList)
+                                <tr class="border-t border-gray-100 dark:border-gray-700">
+                                    <th class="whitespace-nowrap px-6 py-4 font-medium text-gray-900 dark:text-white" scope="row">
+                                        <a href="{{ $publicFilterList->publicUrl() }}" title="{{ $publicFilterList->publicUrl() }}" class="text-indigo-600 hover:underline dark:text-indigo-400">{{ $publicFilterList->name }}</a>
+                                    </th>
+                                    <td class="px-6 py-4">{{ $publicFilterList->description ?: '-' }}</td>
+                                    <td class="whitespace-nowrap px-6 py-4">{{ $publicFilterList->createdAtShort }}</td>
+                                </tr>
+                            @empty
+                                <tr class="border-t border-gray-100 dark:border-gray-700">
+                                    <td class="px-6 py-4 text-center" colspan="3">{{ __('messages.welcome.public_lists_empty') }}</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
             <section id="description" class="max-w-7xl mx-auto mt-7 p-1" aria-labelledby="faq-section-title">
                 <h2 id="faq-section-title" class="text-2xl font-bold m-4 p-12 text-gray-900 text-center uppercase dark:text-gray-100">{{ __('messages.default.faq') }}</h2>
 

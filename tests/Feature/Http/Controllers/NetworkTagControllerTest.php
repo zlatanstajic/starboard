@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Http\Controllers;
 
+use App\Models\NetworkProfile;
+use App\Models\NetworkSource;
 use App\Models\NetworkTag;
 use App\Models\User;
+use App\Repositories\NetworkTagRepository;
 use App\Services\NetworkTagService;
 use Exception;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -192,5 +195,138 @@ class NetworkTagControllerTest extends TestCase
         $response = $this->delete(route('network-tags.destroy', $tag));
 
         $response->assertNotFound();
+    }
+
+    public function test_index_narrows_the_listing_with_the_search_filter(): void
+    {
+        $this->useRealService();
+        $matching = $this->createTag('Matching_'.uniqid(), 'Matching description');
+        $other = $this->createTag('Other_'.uniqid(), 'Other description');
+
+        $response = $this->get(route('network-tags.index', [
+            'filter' => ['search' => $matching->name],
+        ]));
+
+        $response->assertOk();
+        $response->assertSee($matching->name);
+        $response->assertDontSee($other->name);
+    }
+
+    public function test_index_matches_the_search_filter_against_the_description(): void
+    {
+        $this->useRealService();
+        $unique = uniqid();
+        $matching = $this->createTag('Tag_'.$unique, 'Describes_'.$unique);
+        $other = $this->createTag('Other_'.uniqid(), 'Unrelated');
+
+        $response = $this->get(route('network-tags.index', [
+            'filter' => ['search' => 'Describes_'.$unique],
+        ]));
+
+        $response->assertOk();
+        $response->assertSee($matching->name);
+        $response->assertDontSee($other->name);
+    }
+
+    public function test_index_sorts_the_listing_in_reverse_name_order(): void
+    {
+        $this->useRealService();
+        $unique = uniqid();
+        $first = $this->createTag('AAA_'.$unique, null);
+        $last = $this->createTag('ZZZ_'.$unique, null);
+
+        $response = $this->get(route('network-tags.index', ['sort' => '-name']));
+
+        $response->assertOk();
+        $response->assertSeeInOrder([$last->name, $first->name]);
+    }
+
+    public function test_index_sorts_the_listing_by_network_profiles_count(): void
+    {
+        $this->useRealService();
+        $unique = uniqid();
+        $empty = $this->createTag('Empty_'.$unique, null);
+        $busy = $this->createTag('Busy_'.$unique, null);
+
+        $source = NetworkSource::factory()->create(['user_id' => $this->user->id]);
+        $profile = NetworkProfile::factory()->create([
+            'user_id' => $this->user->id,
+            'network_source_id' => $source->id,
+        ]);
+        $busy->networkProfiles()->attach($profile->id);
+
+        $response = $this->get(route('network-tags.index', ['sort' => '-network_profiles_count']));
+
+        $response->assertOk();
+        $response->assertSeeInOrder([$busy->name, $empty->name]);
+    }
+
+    public function test_index_filters_the_listing_by_profile_count_range(): void
+    {
+        $this->useRealService();
+        $unique = uniqid();
+        $empty = $this->createTag('Empty_'.$unique, null);
+        $busy = $this->createTag('Busy_'.$unique, null);
+
+        $source = NetworkSource::factory()->create(['user_id' => $this->user->id]);
+        $profile = NetworkProfile::factory()->create([
+            'user_id' => $this->user->id,
+            'network_source_id' => $source->id,
+        ]);
+        $busy->networkProfiles()->attach($profile->id);
+
+        $response = $this->get(route('network-tags.index', ['filter' => ['profiles' => '0']]));
+
+        $response->assertOk();
+        $response->assertSee($empty->name);
+        $response->assertDontSee($busy->name);
+    }
+
+    public function test_index_redirects_when_the_sort_is_not_allowed(): void
+    {
+        $this->useRealService();
+
+        $response = $this->get(route('network-tags.index', ['sort' => 'bogus']));
+
+        $response->assertRedirect(route('network-tags.index'));
+    }
+
+    public function test_index_without_a_query_lists_every_tag(): void
+    {
+        $this->useRealService();
+        $unique = uniqid();
+        $first = $this->createTag('First_'.$unique, null);
+        $second = $this->createTag('Second_'.$unique, null);
+
+        $response = $this->get(route('network-tags.index'));
+
+        $response->assertOk();
+        $response->assertSee($first->name);
+        $response->assertSee($second->name);
+    }
+
+    /**
+     * Swaps the service mock for the real service so the listing query
+     * (search, sort) is actually executed against the database.
+     */
+    private function useRealService(): void
+    {
+        $this->app->forgetInstance(NetworkTagService::class);
+        $this->instance(
+            NetworkTagService::class,
+            new NetworkTagService(new NetworkTagRepository)
+        );
+    }
+
+    /**
+     * Creates a network tag owned by the acting user.
+     */
+    private function createTag(string $name, ?string $description): NetworkTag
+    {
+        return NetworkTag::query()->create([
+            'user_id' => $this->user->id,
+            'name' => $name,
+            'description' => $description,
+        ]);
     }
 }

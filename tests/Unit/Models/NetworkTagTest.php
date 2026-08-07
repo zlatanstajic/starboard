@@ -28,6 +28,24 @@ class NetworkTagTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_allowed_sorts_expose_the_listing_sort_options(): void
+    {
+        $this->assertSame([
+            'name',
+            'description',
+            'network_profiles_count',
+            'created_at',
+            'updated_at',
+        ], NetworkTag::ALLOWED_SORTS);
+    }
+
+    public function test_allowed_filters_and_includes_stay_empty(): void
+    {
+        // Search is a callback filter registered in the repository, not a column filter.
+        $this->assertSame([], NetworkTag::ALLOWED_FILTERS);
+        $this->assertSame([], NetworkTag::ALLOWED_INCLUDES);
+    }
+
     public function test_factory_can_create_network_tag(): void
     {
         $tag = NetworkTag::factory()->create();

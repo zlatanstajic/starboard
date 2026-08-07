@@ -16,6 +16,7 @@
                         ['route' => 'dashboard', 'label' => __('messages.network_profile.page_name')],
                         ['route' => 'network-sources.index', 'label' => __('messages.network_source.page_name')],
                         ['route' => 'network-tags.index', 'label' => __('messages.network_tag.page_name')],
+                        ['route' => 'filter-lists.index', 'label' => __('messages.filter_list.page_name')],
                     ];
                 @endphp
 

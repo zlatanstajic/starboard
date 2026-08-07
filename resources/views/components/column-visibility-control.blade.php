@@ -1,3 +1,8 @@
+@props([
+    // list of ['key' => string, 'label' => string, 'locked' => bool]
+    'columns',
+])
+
 <div class="relative shrink-0" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
     <button type="button"
             @click="open = !open"
@@ -11,43 +16,28 @@
         {{ __('messages.default.columns') }}
     </button>
 
+    {{--
+        z-[60] keeps the panel above the table (and its sticky/shadowed wrapper)
+        even when the listing is short enough that the panel overhangs it.
+    --}}
     <div x-show="open" x-cloak x-transition
-        class="absolute z-50 mt-2 w-56 rounded-lg shadow-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-3">
+        class="absolute z-[60] mt-2 w-56 rounded-lg shadow-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-3">
         <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">{{ __('messages.default.columns') }}</p>
         <div class="flex flex-col gap-2">
-            {{-- Name: always visible, disabled + checked (hide-all guard) --}}
-            <label class="flex items-center cursor-not-allowed opacity-70">
-                <input type="checkbox" checked disabled class="rounded text-blue-600">
-                <span class="ml-2 text-sm dark:text-gray-300">{{ __('messages.default.name') }}</span>
-            </label>
-            <label class="flex items-center cursor-pointer">
-                <input type="checkbox" x-model="columns.number" class="rounded text-blue-600">
-                <span class="ml-2 text-sm dark:text-gray-300">{{ __('messages.default.row_number') }}</span>
-            </label>
-            <label class="flex items-center cursor-pointer">
-                <input type="checkbox" x-model="columns.tags" class="rounded text-blue-600">
-                <span class="ml-2 text-sm dark:text-gray-300">{{ __('messages.default.tags') }}</span>
-            </label>
-            <label class="flex items-center cursor-pointer">
-                <input type="checkbox" x-model="columns.status" class="rounded text-blue-600">
-                <span class="ml-2 text-sm dark:text-gray-300">{{ __('messages.default.status') }}</span>
-            </label>
-            <label class="flex items-center cursor-pointer">
-                <input type="checkbox" x-model="columns.favorite" class="rounded text-blue-600">
-                <span class="ml-2 text-sm dark:text-gray-300">{{ __('messages.default.favorite') }}</span>
-            </label>
-            <label class="flex items-center cursor-pointer">
-                <input type="checkbox" x-model="columns.visits" class="rounded text-blue-600">
-                <span class="ml-2 text-sm dark:text-gray-300">{{ __('messages.default.visits') }}</span>
-            </label>
-            <label class="flex items-center cursor-pointer">
-                <input type="checkbox" x-model="columns.timestamps" class="rounded text-blue-600">
-                <span class="ml-2 text-sm dark:text-gray-300">{{ __('messages.default.timestamps') }}</span>
-            </label>
-            <label class="flex items-center cursor-pointer">
-                <input type="checkbox" x-model="columns.actions" class="rounded text-blue-600">
-                <span class="ml-2 text-sm dark:text-gray-300">{{ __('messages.default.actions') }}</span>
-            </label>
+            @foreach($columns as $column)
+                @if($column['locked'] ?? false)
+                    {{-- Locked column: always visible, disabled + checked (hide-all guard) --}}
+                    <label class="flex items-center cursor-not-allowed opacity-70">
+                        <input type="checkbox" checked disabled class="rounded text-blue-600">
+                        <span class="ml-2 text-sm dark:text-gray-300">{{ $column['label'] }}</span>
+                    </label>
+                @else
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" x-model="columns.{{ $column['key'] }}" class="rounded text-blue-600">
+                        <span class="ml-2 text-sm dark:text-gray-300">{{ $column['label'] }}</span>
+                    </label>
+                @endif
+            @endforeach
         </div>
     </div>
 </div>

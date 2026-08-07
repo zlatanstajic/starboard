@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\NetworkTag;
 use App\Repositories\NetworkTagRepository;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class NetworkTagService
@@ -24,9 +25,16 @@ class NetworkTagService
      */
     public function getAll(
         bool $paginate = false,
-        bool $withCount = false
+        bool $withCount = false,
+        bool $filterable = false
     ): LengthAwarePaginator {
-        return $this->networkTagRepository->getAll($paginate, 'name', $withCount);
+        return $this->networkTagRepository->getAll($paginate, 'name', $withCount, $filterable);
+    }
+
+    /** @return Collection<int, NetworkTag> */
+    public function getAllForOwner(int $ownerId): Collection
+    {
+        return $this->networkTagRepository->getAllForOwner($ownerId);
     }
 
     /**

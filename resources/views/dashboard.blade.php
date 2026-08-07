@@ -43,16 +43,12 @@
 
                     <div x-cloak x-show="showFilters" x-transition class="flex flex-col md:flex-row md:items-end gap-4 mb-6">
 
-                        <div class="w-full md:w-1/6">
-                            <select onchange="window.location.href=this.value" aria-label="{{ __('messages.network_profile.filter.all_network_sources') }}" class="bg-gray-50 border border-gray-300 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['network_source_id' => null])]) }}" {{ !request('filter.network_source_id') ? 'selected' : '' }}>{{ __('messages.network_profile.filter.all_network_sources') }}</option>
-                                @foreach($networkSources as $source)
-                                    <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['network_source_id' => $source->id])]) }}"
-                                        {{ request('filter.network_source_id') == $source->id ? 'selected' : '' }}>
-                                        {{ ucfirst($source->name) }}
-                                    </option>
-                                @endforeach
-                            </select>
+                        {{-- Double width of the other filters so long source names stay readable when expanded. --}}
+                        <div class="w-full md:w-1/3">
+                            <x-network-source-filter
+                                :sources="$networkSources"
+                                :label="__('messages.network_profile.filter.all_network_sources')"
+                            />
                         </div>
 
                         <div class="w-full md:w-1/6">
@@ -116,14 +112,6 @@
                         </div>
                         @endif
 
-                        <div class="w-full md:w-1/6">
-                            <select onchange="window.location.href=this.value" aria-label="{{ __('messages.network_profile.filter.all_tags') }}" class="bg-gray-50 border border-gray-300 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                                <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['tags' => null])]) }}" {{ !request('filter.tags') ? 'selected' : '' }}>{{ __('messages.network_profile.filter.all_tags') }}</option>
-                                <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['tags' => 'any'])]) }}" {{ request('filter.tags') === 'any' ? 'selected' : '' }}>{{ __('messages.network_profile.filter.with_tags') }}</option>
-                                <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['tags' => 'none'])]) }}" {{ request('filter.tags') === 'none' ? 'selected' : '' }}>{{ __('messages.network_profile.filter.without_tags') }}</option>
-                            </select>
-                        </div>
-
                     </div>
 
                     <div x-cloak x-show="showFilters" x-transition class="flex flex-col md:flex-row md:items-end gap-4 mb-6">
@@ -147,7 +135,15 @@
 
                         </div>
 
-                        <div class="w-full md:w-1/2">
+                        <div class="w-full md:w-1/6">
+                            <select onchange="window.location.href=this.value" aria-label="{{ __('messages.network_profile.filter.all_tags') }}" class="bg-gray-50 border border-gray-300 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['tags' => null])]) }}" {{ !request('filter.tags') ? 'selected' : '' }}>{{ __('messages.network_profile.filter.all_tags') }}</option>
+                                <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['tags' => 'any'])]) }}" {{ request('filter.tags') === 'any' ? 'selected' : '' }}>{{ __('messages.network_profile.filter.with_tags') }}</option>
+                                <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['tags' => 'none'])]) }}" {{ request('filter.tags') === 'none' ? 'selected' : '' }}>{{ __('messages.network_profile.filter.without_tags') }}</option>
+                            </select>
+                        </div>
+
+                        <div class="w-full md:w-1/6">
                             <select onchange="window.location.href=this.value" aria-label="{{ __('messages.network_profile.filter.all_descriptions') }}" class="bg-gray-50 border border-gray-300 text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                 <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['has_description' => null])]) }}" {{ !request('filter.has_description') ? 'selected' : '' }}>{{ __('messages.network_profile.filter.all_descriptions') }}</option>
                                 <option value="{{ request()->fullUrlWithQuery(['filter' => array_merge(request('filter', []), ['has_description' => '1'])]) }}" {{ request('filter.has_description') === '1' ? 'selected' : '' }}>{{ __('messages.network_profile.filter.with_description') }}</option>
@@ -155,7 +151,8 @@
                             </select>
                         </div>
 
-                        <div class="w-full md:w-1/2">
+                        {{-- Takes the width the fixed-size fields leave over, so the row never needs to shrink them. --}}
+                        <div class="w-full md:flex-1">
                             <form autocomplete="off" id="search-form" action="{{ request()->url() }}" method="GET" class="relative group">
                                 @if(request('filter'))
                                     @foreach(request('filter') as $key => $value)
@@ -207,15 +204,15 @@
 
                         <button type="submit"
                                 form="search-form"
-                            class="inline-flex w-28 items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 transition-colors">
+                                class="inline-flex w-28 shrink-0 items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 transition-colors">
                             {{ __('messages.default.apply') }}
                         </button>
-
                     </div>
 
 
                     <div x-cloak x-show="showFilters" x-transition class="flex flex-col md:flex-row md:items-end gap-4 mb-6">
-                        <div class="w-full md:w-1/2">
+
+                        <div class="w-full md:w-1/2" data-tag-filter="included">
                             @php
                                 $selectedTags = request('filter.tags', []);
                                 if (!is_array($selectedTags)) {
@@ -231,7 +228,7 @@
                             </select>
                         </div>
 
-                        <div class="w-full md:w-1/2">
+                        <div class="w-full md:w-1/2" data-tag-filter="excluded">
                             @php
                                 $excludedTags = request('filter.exclude_tags', []);
                                 if (!is_array($excludedTags)) {
@@ -250,20 +247,37 @@
                     </div>
 
                     <div x-cloak x-show="showFilters" x-transition class="flex flex-nowrap items-center gap-2 mb-6" data-filter-actions>
-                        <x-column-visibility-control />
+                        <x-column-visibility-control :columns="[
+                            ['key' => 'name', 'label' => __('messages.default.name'), 'locked' => true],
+                            ['key' => 'number', 'label' => __('messages.default.row_number'), 'locked' => false],
+                            ['key' => 'tags', 'label' => __('messages.default.tags'), 'locked' => false],
+                            ['key' => 'status', 'label' => __('messages.default.status'), 'locked' => false],
+                            ['key' => 'favorite', 'label' => __('messages.default.favorite'), 'locked' => false],
+                            ['key' => 'visits', 'label' => __('messages.default.visits'), 'locked' => false],
+                            ['key' => 'timestamps', 'label' => __('messages.default.timestamps'), 'locked' => false],
+                            ['key' => 'actions', 'label' => __('messages.default.actions'), 'locked' => false],
+                        ]" />
 
                         <x-youtube-fetch-control
-                            :youtube-fetch-enabled="$youtubeFetchEnabled ?? false"
-                            :availability="$youtubeFetchAvailability ?? ['circuit_open' => false, 'budget_exhausted' => false]"
+                            :youtube-fetch-enabled="$youtubeFetchEnabled"
+                            :availability="$youtubeFetchAvailability"
                         />
 
-                        <button onclick="window.location.href='{{ request()->url() }}'"
+                        <button data-clear-filters onclick="window.location.href='{{ request()->url() }}'"
                             class="inline-flex w-28 shrink-0 items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700 transition-colors">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                             </svg>
                             {{ __('messages.default.clear') }}
                         </button>
+
+                        @if(request()->filled('filter') || request()->filled('sort'))
+                            <button type="button" data-publish-filter-list @click="$dispatch('open-publish-list-modal')"
+                                class="inline-flex w-28 shrink-0 items-center justify-center rounded-lg border border-transparent bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                                {{ __('messages.filter_list.publish') }}
+                            </button>
+                        @endif
                     </div>
 
                     <x-table-header
@@ -284,7 +298,7 @@
                                     <th scope="col" class="px-6 py-3 text-center" title="{{ __('messages.default.favorite') }}" data-col="favorite" x-show="columns.favorite">{{ __('messages.default.favorite_short') }}</th>
                                     <th scope="col" class="px-3 py-2 w-20 md:w-24 text-center text-xs" title="{{ __('messages.network_profile.visits_title') }}" data-col="visits" x-show="columns.visits">{{ __('messages.default.visits') }}</th>
                                     <th scope="col" class="px-3 py-2 w-28 text-center text-xs" title="{{ __('messages.default.timestamps_title') }}" data-col="timestamps" x-show="columns.timestamps">{{ __('messages.default.timestamps') }}</th>
-                                    <th scope="col" class="px-6 py-3 text-center" data-col="actions" x-show="columns.actions">{{ __('messages.default.actions') }}</th>
+                                    <th scope="col" class="px-6 py-3 text-right" data-col="actions" x-show="columns.actions">{{ __('messages.default.actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -323,7 +337,7 @@
                                                 {{ Str::limit($profile->networkTags->pluck('name')->sort()->implode(', '), 25, '...') }}
                                             </td>
                                         @else
-                                            <td class="px-6 py-4" data-col="tags" x-show="columns.tags" title="/">/</td>
+                                            <td class="px-6 py-4" data-col="tags" x-show="columns.tags" title="-">-</td>
                                         @endif
 
                                         <td class="px-6 py-4 text-center" data-col="status" x-show="columns.status">
@@ -354,8 +368,8 @@
                                         >
                                             {{ $profile->created_at_short }} / {{ $profile->updated_at_short }}
                                         </td>
-                                        <td class="px-6 py-4 text-center" data-col="actions" x-show="columns.actions">
-                                            <div class="flex justify-center gap-2">
+                                        <td class="px-6 py-4 text-right" data-col="actions" x-show="columns.actions">
+                                            <div class="flex justify-end gap-2">
                                                 <x-edit-button
                                                     event-name="open-edit-profile-modal"
                                                     :payload="[
@@ -533,6 +547,23 @@
             title="{{ __('messages.network_profile.delete_network_profile') }}"
             message="{{ __('messages.network_profile.delete_network_profile_message') }}"
         />
+
+        <x-publish-modal />
+
+        @if(session('published_filter_list'))
+            <div x-data="{ isOpen: false }" x-init="isOpen = true" x-show="isOpen" x-cloak @keydown.escape.window="isOpen = false"
+                class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4" role="dialog" aria-modal="true" aria-label="{{ __('messages.filter_list.published') }}">
+                <div class="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800" @click.away="isOpen = false">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ __('messages.filter_list.published') }}</h3>
+                    <p class="mb-4 mt-1 text-sm text-gray-600 dark:text-gray-300">{{ session('published_filter_list.name') }}</p>
+                    <x-copy-link :url="session('published_filter_list.url')" />
+                    <div class="mt-6 flex items-center justify-end gap-3">
+                        <a href="{{ route('filter-lists.index') }}" class="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">{{ __('messages.filter_list.manage') }}</a>
+                        <button type="button" @click="isOpen = false" class="rounded-lg bg-gray-100 px-4 py-2 text-sm hover:bg-gray-200 dark:bg-gray-700 dark:text-white">{{ __('messages.default.cancel') }}</button>
+                    </div>
+                </div>
+            </div>
+        @endif
 
     </div>
 
