@@ -26,6 +26,7 @@ class NetworkSourcesEnumTest extends TestCase
             'loom' => [NetworkSourcesEnum::Loom, 'https://www.loom.com/share/{username}'],
             'wikipedia' => [NetworkSourcesEnum::Wikipedia, 'https://en.wikipedia.org/wiki/{id}'],
             'imdb' => [NetworkSourcesEnum::Imdb, 'https://www.imdb.com/list/{id}'],
+            'github' => [NetworkSourcesEnum::GitHub, 'https://github.com/{username}'],
         ];
     }
 
@@ -56,6 +57,18 @@ class NetworkSourcesEnumTest extends TestCase
             'en.wikipedia.org' => ['https://en.wikipedia.org/wiki/Article', NetworkSourcesEnum::Wikipedia],
             'sh.wikipedia.org subdomain matches' => ['https://sh.wikipedia.org/wiki/Article', NetworkSourcesEnum::Wikipedia],
             'imdb.com' => ['https://www.imdb.com/list/abc123', NetworkSourcesEnum::Imdb],
+            'github.com' => ['https://github.com/laravel/framework', NetworkSourcesEnum::GitHub],
+            'www.github.com subdomain matches' => ['https://www.github.com/laravel/framework', NetworkSourcesEnum::GitHub],
+            'gist.github.com subdomain matches' => ['https://gist.github.com/username/id', NetworkSourcesEnum::GitHub],
+            'github.io' => ['https://github.io/', NetworkSourcesEnum::GitHub],
+            'github.io subdomain matches' => ['https://laravel.github.io/framework', NetworkSourcesEnum::GitHub],
+            'github host is case-insensitive' => ['https://GITHUB.COM/laravel/framework', NetworkSourcesEnum::GitHub],
+            'github partial host is not a false positive' => ['https://notgithub.com/laravel/framework', null],
+            'github parent domain is not a false positive' => ['https://github.com.example.com/laravel/framework', null],
+            'github.io partial host is not a false positive' => ['https://notgithub.io/framework', null],
+            'github.io parent domain is not a false positive' => ['https://github.io.example.com/framework', null],
+            'github in path is not a false positive' => ['https://example.com/github.com/laravel/framework', null],
+            'github in query string is not a false positive' => ['https://example.com/?ref=github.com', null],
         ];
     }
 
@@ -85,7 +98,7 @@ class NetworkSourcesEnumTest extends TestCase
 
     public function test_cases_count_matches_expected(): void
     {
-        $this->assertCount(10, NetworkSourcesEnum::cases());
+        $this->assertCount(11, NetworkSourcesEnum::cases());
     }
 
     public function test_can_be_created_from_string_value(): void
@@ -110,7 +123,7 @@ class NetworkSourcesEnumTest extends TestCase
     {
         $map = NetworkSourcesEnum::iconMap();
 
-        $this->assertCount(10, $map);
+        $this->assertCount(11, $map);
 
         foreach (NetworkSourcesEnum::cases() as $case) {
             $this->assertArrayHasKey($case->value, $map);

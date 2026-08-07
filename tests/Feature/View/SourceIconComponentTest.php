@@ -19,6 +19,15 @@ class SourceIconComponentTest extends TestCase
         $this->assertStringContainsString(NetworkSourcesEnum::YouTube->brandColor(), $output);
     }
 
+    public function test_renders_github_brand_svg(): void
+    {
+        $output = Blade::render('<x-source-icon slug="github" />');
+
+        $this->assertStringContainsString('<svg', $output);
+        $this->assertStringContainsString(NetworkSourcesEnum::GitHub->brandIconPath(), $output);
+        $this->assertStringContainsString('fill="'.NetworkSourcesEnum::GitHub->brandColor().'"', $output);
+    }
+
     public function test_renders_nothing_for_null_slug(): void
     {
         $output = Blade::render('<x-source-icon :slug="null" />');

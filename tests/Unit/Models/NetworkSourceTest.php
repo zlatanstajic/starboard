@@ -120,6 +120,15 @@ class NetworkSourceTest extends TestCase
         $this->assertSame('youtube', $source->icon);
     }
 
+    public function test_github_icon_is_derived_from_url_on_create(): void
+    {
+        $source = NetworkSource::factory()->create([
+            'url' => 'https://laravel.github.io/framework',
+        ]);
+
+        $this->assertSame('github', $source->icon);
+    }
+
     public function test_icon_is_null_for_unknown_url_on_create(): void
     {
         $source = NetworkSource::factory()->create([
@@ -140,6 +149,17 @@ class NetworkSourceTest extends TestCase
         $source->update(['url' => 'https://rumble.com/c/channel']);
 
         $this->assertSame('rumble', $source->fresh()->icon);
+    }
+
+    public function test_icon_is_recomputed_when_url_changes_to_github_subdomain(): void
+    {
+        $source = NetworkSource::factory()->create([
+            'url' => 'https://example.com/profile',
+        ]);
+
+        $source->update(['url' => 'https://gist.github.com/username/id']);
+
+        $this->assertSame('github', $source->fresh()->icon);
     }
 
     public function test_restoring_source_restores_soft_deleted_profiles(): void
