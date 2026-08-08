@@ -60,6 +60,16 @@ class SaveModalComponentTest extends TestCase
         $response->assertSeeInOrder(['data-clear-filters', 'data-save-filter-list'], false);
     }
 
+    public function test_filter_actions_wrap_when_the_save_button_is_rendered(): void
+    {
+        $response = $this->get(route('dashboard', ['filter' => ['search' => 'needle']]));
+
+        $response->assertOk();
+        $response->assertSee('data-save-filter-list', false);
+        $response->assertSee('class="flex flex-wrap items-center gap-2 mb-6" data-filter-actions', false);
+        $response->assertDontSee('class="flex flex-nowrap items-center gap-2 mb-6" data-filter-actions', false);
+    }
+
     public function test_save_form_action_carries_the_current_query_string(): void
     {
         $response = $this->get(route('dashboard', [

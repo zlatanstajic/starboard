@@ -246,7 +246,7 @@
 
                     </div>
 
-                    <div x-cloak x-show="showFilters" x-transition class="flex flex-nowrap items-center gap-2 mb-6" data-filter-actions>
+                    <div x-cloak x-show="showFilters" x-transition class="flex flex-wrap items-center gap-2 mb-6" data-filter-actions>
                         <x-column-visibility-control :columns="[
                             ['key' => 'name', 'label' => __('messages.default.name'), 'locked' => true],
                             ['key' => 'number', 'label' => __('messages.default.row_number'), 'locked' => false],
