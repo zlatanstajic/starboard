@@ -1,6 +1,3 @@
-# PHP runtime version for the production stage (8.3, 8.4 or 8.5)
-ARG PHP_VERSION=8.5
-
 # Stage 1: Build frontend assets
 FROM node:22-alpine AS node-builder
 
@@ -29,7 +26,7 @@ COPY . .
 RUN composer dump-autoload --optimize
 
 # Stage 3: Production image
-FROM php:${PHP_VERSION}-fpm-alpine AS production
+FROM php:8.5-fpm-alpine AS production
 
 WORKDIR /var/www/html
 
@@ -39,6 +36,7 @@ RUN apk add --no-cache \
     curl \
     freetype-dev \
     libjpeg-turbo-dev \
+    libxml2-dev \
     libpng-dev \
     libzip-dev \
     oniguruma-dev \
@@ -49,6 +47,7 @@ RUN apk add --no-cache \
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
         bcmath \
+        dom \
         gd \
         mbstring \
         pdo \
@@ -60,6 +59,11 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 # Copy application from previous stages
 COPY --from=composer-builder /app ./
 COPY --from=node-builder /app/public/build ./public/build
+
+# Verify that the runtime image satisfies the application's PHP requirements
+COPY --from=composer-builder /usr/bin/composer /usr/local/bin/composer
+RUN composer check-platform-reqs --no-dev \
+    && rm /usr/local/bin/composer
 
 # Copy custom PHP configuration
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/app.ini

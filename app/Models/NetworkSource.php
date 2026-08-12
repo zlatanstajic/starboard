@@ -39,6 +39,7 @@ class NetworkSource extends Model
     /**
      * Fillable fields in this model.
      */
+    #[Override]
     public $fillable = [
         'user_id',
         'name',
@@ -51,6 +52,7 @@ class NetworkSource extends Model
      *
      * @var array<string,string>
      */
+    #[Override]
     protected $casts = [
         'exclude_from_dashboard' => 'boolean',
     ];

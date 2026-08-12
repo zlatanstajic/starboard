@@ -66,7 +66,7 @@ class FetchYouTubeNewItemsJobTest extends TestCase
         ]);
         $profile = $this->youtubeProfile(now()->subDay(), username: '@channel');
 
-        (new FetchYouTubeNewItemsJob($profile))->handle();
+        new FetchYouTubeNewItemsJob($profile)->handle();
 
         Http::assertSent(function (Request $request): bool {
             if (! str_contains($request->url(), '/channels')) {
@@ -92,7 +92,7 @@ class FetchYouTubeNewItemsJobTest extends TestCase
         ]);
         $profile = $this->youtubeProfile(now()->subDay(), cached: true);
 
-        (new FetchYouTubeNewItemsJob($profile))->handle();
+        new FetchYouTubeNewItemsJob($profile)->handle();
 
         Http::assertSent(function (Request $request): bool {
             if (! str_contains($request->url(), '/channels')) {
@@ -124,7 +124,7 @@ class FetchYouTubeNewItemsJobTest extends TestCase
         });
         $profile = $this->youtubeProfile(now()->subDay(), cached: true);
 
-        (new FetchYouTubeNewItemsJob($profile))->handle();
+        new FetchYouTubeNewItemsJob($profile)->handle();
 
         $this->assertSame(2, $profile->fresh()->new_items);
         Http::assertSentCount(3);
@@ -181,7 +181,7 @@ class FetchYouTubeNewItemsJobTest extends TestCase
         $profile = $this->youtubeProfile(now()->subDay(), cached: true);
         $profile->forceFill(['new_items' => 3])->save();
 
-        (new FetchYouTubeNewItemsJob($profile))->handle();
+        new FetchYouTubeNewItemsJob($profile)->handle();
 
         $this->assertSame(3, $profile->fresh()->new_items);
     }
@@ -206,7 +206,7 @@ class FetchYouTubeNewItemsJobTest extends TestCase
         Http::fake();
         $profile = $this->youtubeProfile(now()->subDay(), sourceUrl: 'http://169.254.169.254/@{username}/videos');
 
-        (new FetchYouTubeNewItemsJob($profile))->handle();
+        new FetchYouTubeNewItemsJob($profile)->handle();
 
         Http::assertNothingSent();
         $this->assertSame(0, $profile->fresh()->new_items);

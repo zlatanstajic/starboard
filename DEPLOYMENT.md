@@ -6,7 +6,7 @@ by default and must remain disabled during the initial deployment.
 
 ## Prerequisites
 
-- PHP 8.3 with the application-required extensions.
+- PHP 8.5 with the application-required extensions.
 - A non-`array` session driver so fetch batch ownership survives requests.
 - A supported queue connection and a worker capable of consuming the dedicated
   `youtube` queue.
@@ -64,7 +64,7 @@ The YouTube worker must explicitly consume the configured queue. A cPanel cron
 that drains it once per minute can use:
 
 ```cron
-* * * * * /usr/local/bin/ea-php83 /home/USER/APP_PATH/artisan queue:work database --queue=youtube --stop-when-empty --max-time=55 >> /dev/null 2>&1
+* * * * * /usr/local/bin/ea-php85 /home/USER/APP_PATH/artisan queue:work database --queue=youtube --stop-when-empty --max-time=55 >> /dev/null 2>&1
 ```
 
 For a persistent process manager, use the same `--queue=youtube` selection and

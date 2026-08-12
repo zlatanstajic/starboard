@@ -486,13 +486,7 @@ class YouTubeVideoFetchService
     /** @param list<CarbonImmutable> $publishedTimes */
     private function containsTimestampBefore(array $publishedTimes, CarbonImmutable $cutoff): bool
     {
-        foreach ($publishedTimes as $publishedAt) {
-            if ($publishedAt->lessThan($cutoff)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($publishedTimes, fn ($publishedAt) => $publishedAt->lessThan($cutoff));
     }
 
     private function cutoffExpanded(?CarbonImmutable $snapshot, ?CarbonImmutable $current): bool

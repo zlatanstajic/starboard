@@ -123,7 +123,7 @@ class NetworkProfileService
         if (auth()->id() === null) {
             $jobs = $this->networkProfileRepository->getYouTubeVideoProfiles($onlyMatchingFilters)
                 ->values()
-                ->map(fn (NetworkProfile $profile, int $index): FetchYouTubeNewItemsJob => (new FetchYouTubeNewItemsJob($profile))
+                ->map(fn (NetworkProfile $profile, int $index): FetchYouTubeNewItemsJob => new FetchYouTubeNewItemsJob($profile)
                     ->delay(Date::now()->addSeconds($index * (int) config('youtube.stagger_seconds'))))
                 ->all();
 
@@ -191,7 +191,7 @@ class NetworkProfileService
                 'stage' => 'queued',
             ]);
 
-            return (new FetchYouTubeNewItemsJob((int) $profile->id, $userId, $uuid))
+            return new FetchYouTubeNewItemsJob((int) $profile->id, $userId, $uuid)
                 ->delay(Date::now()->addSeconds($index * (int) config('youtube.stagger_seconds')));
         })->all();
 

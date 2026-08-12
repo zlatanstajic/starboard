@@ -24,7 +24,7 @@ class PublicLayoutTest extends TestCase
         $expected = config('app.name').' - '.__('messages.filter_list.public.lists');
 
         $this->assertSame($expected, (new PublicLayout)->pageTitle());
-        $this->assertSame($expected, (new PublicLayout(title: ''))->pageTitle());
+        $this->assertSame($expected, new PublicLayout(title: '')->pageTitle());
     }
 
     public function test_meta_description_falls_back_to_the_default_and_is_truncated(): void
@@ -32,10 +32,10 @@ class PublicLayoutTest extends TestCase
         $default = __('messages.filter_list.public.default_description');
 
         $this->assertSame($default, (new PublicLayout)->metaDescription());
-        $this->assertSame($default, (new PublicLayout(description: ''))->metaDescription());
-        $this->assertSame('Short one.', (new PublicLayout(description: 'Short one.'))->metaDescription());
+        $this->assertSame($default, new PublicLayout(description: '')->metaDescription());
+        $this->assertSame('Short one.', new PublicLayout(description: 'Short one.')->metaDescription());
 
-        $long = (new PublicLayout(description: str_repeat('a', 300)))->metaDescription();
+        $long = new PublicLayout(description: str_repeat('a', 300))->metaDescription();
 
         $this->assertSame(str_repeat('a', 160).'...', $long);
     }
@@ -44,7 +44,7 @@ class PublicLayoutTest extends TestCase
     {
         $this->assertSame(
             'https://example.test/list/Hash12345678',
-            (new PublicLayout(canonical: 'https://example.test/list/Hash12345678'))->canonicalUrl()
+            new PublicLayout(canonical: 'https://example.test/list/Hash12345678')->canonicalUrl()
         );
         $this->assertSame(url()->current(), (new PublicLayout)->canonicalUrl());
     }

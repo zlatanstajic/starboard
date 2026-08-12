@@ -117,12 +117,6 @@ final class LaravelHttpYouTubeTransport implements YouTubeTransport
 
         parse_str($queryString, $urlQuery);
 
-        foreach (array_keys($urlQuery) as $name) {
-            if (strtolower((string) $name) === 'key') {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(array_keys($urlQuery), fn ($name) => strtolower((string) $name) === 'key');
     }
 }

@@ -76,7 +76,7 @@ return [
     ],
     'welcome' => [
         'manage_your_network' => 'Manage Your Network',
-        'powered' => 'Laravel 12 & PHP 8.4 Powered',
+        'powered' => 'Laravel 13 & PHP 8.5 Powered',
         'catch_phrase' => 'Surf the Web like a pro',
         'get_started' => 'Get Started for Free',
         'view_features' => 'View Features',

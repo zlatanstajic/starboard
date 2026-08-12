@@ -30,6 +30,7 @@ class NetworkTag extends Model
     /**
      * Fillable fields in this model.
      */
+    #[Override]
     public $fillable = [
         'user_id',
         'name',

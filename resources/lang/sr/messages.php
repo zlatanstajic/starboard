@@ -76,7 +76,7 @@ return [
     ],
     'welcome' => [
         'manage_your_network' => 'Upravljajte svojom mrežom',
-        'powered' => 'Pokreće Laravel 12 & PHP 8.4',
+        'powered' => 'Pokreće Laravel 13 & PHP 8.5',
         'catch_phrase' => 'Surfujte internetom kao profesionalac',
         'get_started' => 'Započnite besplatno',
         'view_features' => 'Pogledajte opcije',

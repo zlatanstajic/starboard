@@ -90,7 +90,7 @@ class FetchYouTubeNewItemsJob implements ShouldQueue
     /** @return list<object> */
     public function middleware(): array
     {
-        return [(new WithoutOverlapping("youtube:{$this->userId}:{$this->networkProfileId}"))
+        return [new WithoutOverlapping("youtube:{$this->userId}:{$this->networkProfileId}")
             ->releaseAfter(15)
             ->expireAfter($this->timeout + 15)];
     }

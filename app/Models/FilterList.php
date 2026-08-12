@@ -32,6 +32,7 @@ class FilterList extends Model
         'updated_at',
     ];
 
+    #[Override]
     public $fillable = [
         'user_id',
         'name',

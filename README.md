@@ -5,7 +5,7 @@
 [![Tests](https://github.com/zlatanstajic/starboard/actions/workflows/tests.yml/badge.svg)](https://github.com/zlatanstajic/starboard/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
 [![Coverage: 85%+](https://img.shields.io/badge/Coverage-85%25%2B-brightgreen.svg)](https://github.com/zlatanstajic/starboard/actions)
-[![PHP 8.3 | 8.4 | 8.5](https://img.shields.io/badge/PHP-8.3%20%7C%208.4%20%7C%208.5-blue.svg)](https://www.php.net/)
+[![PHP 8.5](https://img.shields.io/badge/PHP-8.5-blue.svg)](https://www.php.net/)
 [![Laravel 13](https://img.shields.io/badge/Laravel-13-red.svg)](https://laravel.com/)
 
 A modern, centralized platform to track and manage your favorite creators and influencers across multiple social media networks. Monitor profile visits, organize favorites, and maintain a comprehensive directory of creators all in one place.
@@ -63,7 +63,7 @@ A modern, centralized platform to track and manage your favorite creators and in
 
 ## Tech Stack
 
-- **Backend**: Laravel 13 with PHP 8.3, 8.4 or 8.5
+- **Backend**: Laravel 13 with PHP 8.5
 - **Frontend**: Blade Templates with Alpine.js
 - **Styling**: Tailwind CSS
 - **Database**: MySQL/MariaDB
@@ -78,7 +78,7 @@ A modern, centralized platform to track and manage your favorite creators and in
 
 ### Without Docker
 
-- PHP 8.3, 8.4 or 8.5
+- PHP 8.5
 - Composer
 - MySQL/MariaDB 5.7+
 - Node.js 16+ (for asset compilation)
@@ -123,7 +123,7 @@ This command will:
 
 ## Docker
 
-The project ships with a production-ready Docker setup using a multi-stage `Dockerfile` and a `docker-compose.yml` that orchestrates three services: `app` (PHP-FPM), `nginx`, and `mysql`. The image ships PHP-FPM 8.5 by default; the app itself supports 8.3–8.5, so you can build against another supported version by setting `PHP_VERSION` (see [Environment Variables](#environment-variables)).
+The project ships with a production-ready Docker setup using a multi-stage `Dockerfile` and a `docker-compose.yml` that orchestrates three services: `app` (PHP-FPM), `nginx`, and `mysql`. The application image runs PHP-FPM 8.5.
 
 ### Quick Start
 
@@ -150,7 +150,6 @@ Override any of these in your `.env` file before running `docker compose up`:
 |---|---|---|
 | `APP_KEY` | *(auto-generated)* | Laravel application key |
 | `APP_PORT` | `18000` | Host port mapped to nginx |
-| `PHP_VERSION` | `8.5` | PHP-FPM version baked into the app image (`8.3`, `8.4` or `8.5`); requires a rebuild |
 | `DB_DATABASE` | `starboard` | MySQL database name |
 | `DB_USERNAME` | `starboard` | MySQL user |
 | `DB_PASSWORD` | `secret` | MySQL user password |

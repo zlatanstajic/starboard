@@ -66,6 +66,7 @@ class NetworkProfile extends Model
     /**
      * Fillable fields in this model.
      */
+    #[Override]
     public $fillable = [
         'user_id',
         'network_source_id',

@@ -4,8 +4,6 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-      args:
-        PHP_VERSION: ${PHP_VERSION:-8.5}
     image: starboard-app
     container_name: starboard_app
     restart: unless-stopped
