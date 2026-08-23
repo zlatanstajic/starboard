@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+    color-scheme: dark;
+}
+
 /* Target the SweetAlert2 popup specifically */
 .swal2-popup {
     background-color: #1f2937 !important; /* This is the background */
