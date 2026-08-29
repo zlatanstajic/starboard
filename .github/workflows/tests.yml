@@ -3,12 +3,8 @@ name: Tests
 on:
   push:
     branches:
-      - drafts
-      - dev
       - master
-      - 'feature/*'
       - 'issues/*'
-      - 'fix/*'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

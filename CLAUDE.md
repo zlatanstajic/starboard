@@ -8,6 +8,8 @@ Starboard is a Laravel 13 / PHP 8.5 app for tracking creators across social netw
 
 ## Commands
 
+**Run every command inside the app container** (`docker compose exec app <command>`). Anything that compiles Blade — `php artisan test` included — fails on the host with `ErrorException: tempnam(): file created in the system's temporary directory`, because `storage/framework/views` and `bootstrap/cache` are owned by the container user. That error is a permissions problem, never a Blade bug; do not change application code in response to it. This is **not** a Sail project (`docker-compose.yml` is a custom `app`/`nginx`/`mysql` stack with no `laravel.test` service), so `vendor/bin/sail` cannot work here despite the package being installed.
+
 ```bash
 composer test        # Full gate: rector (dry-run) → peck → pint --test → phpstan → phpunit --coverage --min=85
 composer fix         # Auto-fix: rector process + pint (run before committing)
@@ -23,7 +25,7 @@ php artisan test --filter=NetworkProfileControllerTest
 php artisan test tests/Unit/Services/NetworkProfileServiceTest.php
 ```
 
-- **Tests hit a real MySQL database, not SQLite.** They require a `starboard_testing` MySQL DB and a committed `.env.testing`; `composer test:phpunit` aborts if `.env.testing` is missing. The SQLite `:memory:` block in `phpunit.xml` is intentionally commented out.
+- **Tests hit a real MySQL database, not SQLite.** They require a `starboard_testing` MySQL DB and a committed `.env.testing`; `composer test:phpunit` aborts if `.env.testing` is missing. The SQLite `:memory:` block in `phpunit.xml` is intentionally commented out. **CI runs the identical suite on SQLite** (`.github/workflows/tests.yml`), so any raw SQL or migration behaviour that differs between the two drivers passes locally and fails on push — the `escape '!'` rule under Conventions is one instance of that hazard, not a special case. CI also only fires on `master` and `issues/*`; any other branch name gets no CI run. Branch names are kebab-case (`issues/12-short-description`), never snake_case.
 - **Coverage gate is hard: `--min=85`.** New code without tests will fail the suite (and the Husky pre-commit hook, which runs `composer test`).
 - Use `composer backup` (`snapshot:create`) / `spatie/laravel-db-snapshots` for DB snapshots.
 
@@ -46,6 +48,10 @@ php artisan test tests/Unit/Services/NetworkProfileServiceTest.php
 **Soft deletes + restore-on-create:** `NetworkProfile` uses `SoftDeletes`. The repository's `create()` restores a matching trashed record instead of inserting a duplicate; DB unique-constraint violations (SQLState `23000`) are caught and rethrown as domain exceptions (`app/Exceptions/<Domain>/*`).
 
 **YouTube "new items" is a batched queue flow:** `NetworkProfileService::fetchNewItems()` builds one `FetchYouTubeNewItemsJob` per YouTube-video profile, staggered by `FETCH_STAGGER_SECONDS`, and dispatches them as a named `Bus::batch`. The `fetch` route is `throttle:6,1`; `fetch/status` polls batch progress. The job uses a server-only YouTube Data API v3 key to resolve the channel's uploads playlist with `channels.list`, then pages `playlistItems.list`. API calls happen outside the final source/profile locking transaction; the channel ID and completed count are persisted atomically only if the profile snapshot remains valid.
+
+**The YouTube fetch subsystem is bounded and fails closed.** `App\Contracts\YouTube\YouTubeTransport` is the swap point, bound in `AppServiceProvider::register()` to `LaravelHttpYouTubeTransport`; any `youtube.transport` value other than `laravel-http` throws `YouTubeDisabledException` rather than falling back. It speaks DTOs (`YouTubeFetchRequest`, `YouTubeFetchResult`, `YouTubeProfileResult`), never arrays — this is the only part of the app with `Contracts/` and `DataTransferObjects/`, so don't take it as the house pattern. `YouTubeRequestBudget` guards spend with a per-UTC-day reservation cap and a shared circuit breaker over `youtube_fetch_daily_budgets` / `youtube_fetch_runs` / `youtube_fetch_batches`, using `lockForUpdate()` inside a retrying transaction. Execution is gated by `YOUTUBE_FETCH_ENABLED` (server) and `YOUTUBE_FETCH_UI_ENABLED` (dashboard); every knob lives in `config/youtube.php`. Live CLI access requires `php artisan youtube:probe --profile=<id> --confirm-live` and refuses without the flag. Read `docs/YOUTUBE_FETCH_RUNBOOK.md` before touching budget or circuit rows; recorded HTTP fixtures are in `tests/fixtures/youtube/`.
+
+**`UserObserver` is registered only outside tests.** `AppServiceProvider::boot()` wraps it in `if (! app()->runningUnitTests())`, so in production a new `User` is seeded with every `NetworkSourcesEnum` source plus starter tags and profiles, while `User::factory()` in tests yields a user with none of them. Tests must create the sources, tags and profiles they need; never "fix" a failing test by enabling the observer, and never assume a factory user matches production state.
 
 **Domain models:** `NetworkProfile` (a tracked account) belongs to a `User` and a `NetworkSource` (the platform, whose `url` holds a `{username}`/`{id}`/`{hash}`/`{uuid}` placeholder expanded by `profileUrl()`), and many-to-many with `NetworkTag`. `FilterList` belongs to a `User` and stores a named dashboard capture in the `filter_lists` table (unguessable `hash`, JSON `filters`, publish state/timestamp, description, timestamps, and soft deletion). A capture is created unpublished unless the save modal's `Published` checkbox is ticked; an unpublished capture still gets a hash at insert because `filter_lists.hash` is NOT NULL unique. Only the navigation link is labelled "Filters" (`messages.filter_list.page_name`); every other domain label, identifier, route and key keeps the `filter_list` / `filter-lists` naming.
 
@@ -79,6 +85,39 @@ php artisan test tests/Unit/Services/NetworkProfileServiceTest.php
 ===
 
 <laravel-boost-guidelines>
+=== .ai/starboard rules ===
+
+# Starboard Project Rules
+
+## Commands: not Sail, and not bare on the host either
+
+- This is not a Sail project. `docker-compose.yml` defines a custom `app` (PHP-FPM) / `nginx` / `mysql` stack with no `laravel.test` service, so `vendor/bin/sail` cannot work here even though the package is installed. Ignore any instruction to prefix commands with `vendor/bin/sail`.
+- Run commands inside the app container: `docker compose exec app php artisan <command>`, `docker compose exec app composer test`. `storage/framework/views` and `bootstrap/cache` are owned by the container user, so a host-side `php artisan` that compiles Blade (which includes `php artisan test` and `php artisan boost:update`) fails on PHP 8.5 with `ErrorException: tempnam(): file created in the system's temporary directory`. That error means a permissions problem, never a Blade or view bug: do not "fix" application code in response to it.
+- A cached `bootstrap/cache/config.php` written by the container also makes host-side env overrides silently ineffective, and clearing it needs write access to that container-owned directory.
+- Command forms (run them in the container): `composer test` is the full gate (rector dry-run, peck, pint --test, phpstan, phpunit with `--coverage --min=85`); `composer fix` auto-fixes rector plus pint before committing; individual steps are `composer test:pint`, `composer test:phpstan`, `composer test:rector`, `composer test:peck`, `composer test:phpunit`. `composer serve` runs server, queue listener, pail and vite together.
+
+## The test suite runs on two different database drivers
+
+- Local runs hit a real MySQL database (`starboard_testing`) and require a committed `.env.testing`; `composer test:phpunit` aborts without it. CI runs the identical suite on SQLite.
+- Any raw SQL or migration behaviour that differs between the two drivers passes locally and fails on push. Escape LIKE wildcards with `!` and never with a backslash: MySQL treats a backslash as LIKE's default escape character, SQLite has no default escape character at all.
+- CI only fires on `master` and `issues/*`. Any other branch name gets no CI run. Branch names are kebab-case (`issues/12-short-description`), never snake_case.
+
+## UserObserver is deliberately disabled under tests
+
+- `AppServiceProvider::boot()` registers `UserObserver` only when `! app()->runningUnitTests()`. In production a newly created `User` is seeded with every `NetworkSourcesEnum` source plus starter tags and profiles; in tests `User::factory()` yields a user with none of them.
+- Create the sources, tags and profiles a test needs explicitly. Never assume a factory-created user matches production state, and never "fix" a failing test by enabling the observer.
+
+## YouTube fetching is a bounded subsystem with a spend guard
+
+- `App\Contracts\YouTube\YouTubeTransport` is bound in `AppServiceProvider::register()` to `LaravelHttpYouTubeTransport` and fails closed: any `youtube.transport` value other than `laravel-http` throws `YouTubeDisabledException`. The transport speaks data transfer objects (`YouTubeFetchRequest`, `YouTubeFetchResult`, `YouTubeProfileResult`), not arrays.
+- `YouTubeRequestBudget` enforces a per-UTC-day request reservation cap and a shared circuit breaker across `youtube_fetch_daily_budgets`, `youtube_fetch_runs` and `youtube_fetch_batches`, using `lockForUpdate()` inside a retrying transaction. Execution is gated by `YOUTUBE_FETCH_ENABLED` (server) and `YOUTUBE_FETCH_UI_ENABLED` (dashboard); all knobs live in `config/youtube.php`.
+- Live outbound API access from the CLI requires `php artisan youtube:probe --profile=<id> --confirm-live` and refuses without the flag. Read `docs/YOUTUBE_FETCH_RUNBOOK.md` before touching budget or circuit rows. Recorded HTTP fixtures live in `tests/fixtures/youtube/`.
+
+## Architecture
+
+- Layering is Controller to Service to Repository to Model. Controllers never touch Eloquent directly, and every read of a user-owned model goes through the owner-scoping helpers on `App\Repositories\Repository`.
+- The full set of architectural invariants (multi-tenant `UserScope`, filter-list hash lifecycle, public list page sort narrowing, Blade component prop contracts) is documented at the top of `CLAUDE.md`. Read that section before changing repositories, query filters or the public list pages.
+
 === foundation rules ===
 
 # Laravel Boost Guidelines
@@ -125,7 +164,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 ## Frontend Bundling
 
-- If the user doesn't see a frontend change reflected in the UI, it could mean they need to run `vendor/bin/sail npm run build`, `vendor/bin/sail npm run dev`, or `vendor/bin/sail composer run dev`. Ask them.
+- If the user doesn't see a frontend change reflected in the UI, it could mean they need to run `npm run build`, `npm run dev`, or `composer run dev`. Ask them.
 
 ## Documentation Files
 
@@ -163,15 +202,15 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 ## Artisan
 
-- Run Artisan commands directly via the command line (e.g., `vendor/bin/sail artisan route:list`). Use `vendor/bin/sail artisan list` to discover available commands and `vendor/bin/sail artisan [command] --help` to check parameters.
-- Inspect routes with `vendor/bin/sail artisan route:list`. Filter with: `--method=GET`, `--name=users`, `--path=api`, `--except-vendor`, `--only-vendor`.
-- Read configuration values using dot notation: `vendor/bin/sail artisan config:show app.name`, `vendor/bin/sail artisan config:show database.default`. Or read config files directly from the `config/` directory.
+- Run Artisan commands directly via the command line (e.g., `php artisan route:list`). Use `php artisan list` to discover available commands and `php artisan [command] --help` to check parameters.
+- Inspect routes with `php artisan route:list`. Filter with: `--method=GET`, `--name=users`, `--path=api`, `--except-vendor`, `--only-vendor`.
+- Read configuration values using dot notation: `php artisan config:show app.name`, `php artisan config:show database.default`. Or read config files directly from the `config/` directory.
 
 ## Tinker
 
 - Execute PHP in app context for debugging and testing code. Do not create models without user approval, prefer tests with factories instead. Prefer existing Artisan commands over custom tinker code.
-- Always use single quotes to prevent shell expansion: `vendor/bin/sail artisan tinker --execute 'Your::code();'`
-  - Double quotes for PHP strings inside: `vendor/bin/sail artisan tinker --execute 'User::where("active", true)->count();'`
+- Always use single quotes to prevent shell expansion: `php artisan tinker --execute 'Your::code();'`
+  - Double quotes for PHP strings inside: `php artisan tinker --execute 'User::where("active", true)->count();'`
 
 === php rules ===
 
@@ -190,38 +229,24 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 - Laravel can be deployed using [Laravel Cloud](https://cloud.laravel.com/), which is the fastest way to deploy and scale production Laravel applications.
 
-=== sail rules ===
-
-# Laravel Sail
-
-- This project runs inside Laravel Sail's Docker containers. You MUST execute all commands through Sail.
-- Start services using `vendor/bin/sail up -d` and stop them with `vendor/bin/sail stop`.
-- Open the application in the browser by running `vendor/bin/sail open`.
-- Always prefix PHP, Artisan, Composer, and Node commands with `vendor/bin/sail`. Examples:
-    - Run Artisan Commands: `vendor/bin/sail artisan migrate`
-    - Install Composer packages: `vendor/bin/sail composer install`
-    - Execute Node commands: `vendor/bin/sail npm run dev`
-    - Execute PHP scripts: `vendor/bin/sail php [script]`
-- View all available Sail commands by running `vendor/bin/sail` without arguments.
-
 === tests rules ===
 
 # Test Enforcement
 
 - Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
-- Run the minimum number of tests needed to ensure code quality and speed. Use `vendor/bin/sail artisan test --compact` with a specific filename or filter.
+- Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test --compact` with a specific filename or filter.
 
 === laravel/core rules ===
 
 # Do Things the Laravel Way
 
-- Use `vendor/bin/sail artisan make:` commands to create new files (i.e. migrations, controllers, models, etc.). You can list available Artisan commands using `vendor/bin/sail artisan list` and check their parameters with `vendor/bin/sail artisan [command] --help`.
-- If you're creating a generic PHP class, use `vendor/bin/sail artisan make:class`.
+- Use `php artisan make:` commands to create new files (i.e. migrations, controllers, models, etc.). You can list available Artisan commands using `php artisan list` and check their parameters with `php artisan [command] --help`.
+- If you're creating a generic PHP class, use `php artisan make:class`.
 - Pass `--no-interaction` to all Artisan commands to ensure they work without user input. You should also pass the correct `--options` to ensure correct behavior.
 
 ### Model Creation
 
-- When creating new models, create useful factories and seeders for them too. Ask the user if they need any other things, using `vendor/bin/sail artisan make:model --help` to check the available options.
+- When creating new models, create useful factories and seeders for them too. Ask the user if they need any other things, using `php artisan make:model --help` to check the available options.
 
 ## APIs & Eloquent Resources
 
@@ -235,24 +260,24 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 - When creating models for tests, use the factories for the models. Check if the factory has custom states that can be used before manually setting up the model.
 - Faker: Use methods such as `$this->faker->word()` or `fake()->randomDigit()`. Follow existing conventions whether to use `$this->faker` or `fake()`.
-- When creating tests, make use of `vendor/bin/sail artisan make:test [options] {name}` to create a feature test, and pass `--unit` to create a unit test. Most tests should be feature tests.
+- When creating tests, make use of `php artisan make:test [options] {name}` to create a feature test, and pass `--unit` to create a unit test. Most tests should be feature tests.
 
 ## Vite Error
 
-- If you receive an "Illuminate\Foundation\ViteException: Unable to locate file in Vite manifest" error, you can run `vendor/bin/sail npm run build` or ask the user to run `vendor/bin/sail npm run dev` or `vendor/bin/sail composer run dev`.
+- If you receive an "Illuminate\Foundation\ViteException: Unable to locate file in Vite manifest" error, you can run `npm run build` or ask the user to run `npm run dev` or `composer run dev`.
 
 === pint/core rules ===
 
 # Laravel Pint Code Formatter
 
-- If you have modified any PHP files, you must run `vendor/bin/sail bin pint --dirty --format agent` before finalizing changes to ensure your code matches the project's expected style.
-- Do not run `vendor/bin/sail bin pint --test --format agent`, simply run `vendor/bin/sail bin pint --format agent` to fix any formatting issues.
+- If you have modified any PHP files, you must run `vendor/bin/pint --dirty --format agent` before finalizing changes to ensure your code matches the project's expected style.
+- Do not run `vendor/bin/pint --test --format agent`, simply run `vendor/bin/pint --format agent` to fix any formatting issues.
 
 === phpunit/core rules ===
 
 # PHPUnit
 
-- This application uses PHPUnit for testing. All tests must be written as PHPUnit classes. Use `vendor/bin/sail artisan make:test --phpunit {name}` to create a new test.
+- This application uses PHPUnit for testing. All tests must be written as PHPUnit classes. Use `php artisan make:test --phpunit {name}` to create a new test.
 - If you see a test using "Pest", convert it to PHPUnit.
 - Every time a test has been updated, run that singular test.
 - When the tests relating to your feature are passing, ask the user if they would like to also run the entire test suite to make sure everything is still passing.
@@ -262,8 +287,8 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 ## Running Tests
 
 - Run the minimal number of tests, using an appropriate filter, before finalizing.
-- To run all tests: `vendor/bin/sail artisan test --compact`.
-- To run all tests in a file: `vendor/bin/sail artisan test --compact tests/Feature/ExampleTest.php`.
-- To filter on a particular test name: `vendor/bin/sail artisan test --compact --filter=testName` (recommended after making a change to a related file).
+- To run all tests: `php artisan test --compact`.
+- To run all tests in a file: `php artisan test --compact tests/Feature/ExampleTest.php`.
+- To filter on a particular test name: `php artisan test --compact --filter=testName` (recommended after making a change to a related file).
 
 </laravel-boost-guidelines>

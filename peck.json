@@ -47,6 +47,8 @@
             "memoized",
             "unaddressable",
             "deterministically",
+            "img",
+            "og",
             "erroring"
         ],
         "paths": []

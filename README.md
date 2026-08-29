@@ -1,37 +1,30 @@
 # Starboard
 
-> Surf the Web like a pro.
-
 [![Tests](https://github.com/zlatanstajic/starboard/actions/workflows/tests.yml/badge.svg)](https://github.com/zlatanstajic/starboard/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
 [![Coverage: 85%+](https://img.shields.io/badge/Coverage-85%25%2B-brightgreen.svg)](https://github.com/zlatanstajic/starboard/actions)
 [![PHP 8.5](https://img.shields.io/badge/PHP-8.5-blue.svg)](https://www.php.net/)
 [![Laravel 13](https://img.shields.io/badge/Laravel-13-red.svg)](https://laravel.com/)
 
-A modern, centralized platform to track and manage your favorite creators and influencers across multiple social media networks. Monitor profile visits, organize favorites, and maintain a comprehensive directory of creators all in one place.
+> Surf the Web like a pro.
+
+A centralized Laravel application for tracking and organizing favorite creators across multiple social networks. Starboard keeps profiles, visits, favorites, tags, and shareable filtered lists in one place.
+
+<img src="assets/img/og-image.png" alt="Starboard social preview" width="100%">
 
 ## Table of Contents
 
 - [Features](#features)
 - [Tech Stack](#tech-stack)
-- [Requirements](#requirements)
-  - [Without Docker](#without-docker)
-  - [With Docker](#with-docker)
-- [Installation](#installation)
-  - [1. Clone the repository](#1-clone-the-repository)
-  - [2. Setup the project](#2-setup-the-project)
+- [Install](#install)
+  - [Requirements](#requirements)
+  - [Local Setup](#local-setup)
 - [Docker](#docker)
   - [Quick Start](#quick-start)
   - [Environment Variables](#environment-variables)
   - [Common Commands](#common-commands)
-  - [Docker File Structure](#docker-file-structure)
-- [Configuration](#configuration)
-  - [Environment Variables](#environment-variables-1)
-- [Usage](#usage)
-  - [Starting the Development Server](#starting-the-development-server)
 - [Testing](#testing)
-  - [Run All Tests](#run-all-tests)
-- [Code Quality](#code-quality)
+- [Continuous Integration](#continuous-integration)
   - [Pre-commit Hook](#pre-commit-hook)
 - [Contributing](#contributing)
 - [License](#license)
@@ -40,22 +33,16 @@ A modern, centralized platform to track and manage your favorite creators and in
 
 ## Features
 
-- **Multi-Network Support**: Track creators across multiple social media platforms (Instagram, TikTok, Twitter, YouTube, etc.)
-- **Profile Management**: Create, edit, and delete creator profiles with ease
-- **Visit Tracking**: Automatically track and log visits to creator profiles
-- **Favorites System**: Mark profiles as favorites for quick access
-- **Privacy Control**: Set profiles as public or private
-- **Advanced Filtering**: Filter by network source, visit count, last visit date, status, and favorites; the network source filter lists each platform with its brand icon
-- **Shareable Filter Lists**: Publish a named dashboard filter set at a revocable public link and manage it from the Filter Lists page
-- **SEO-Ready Public Pages**: Each public list page renders its own title, meta description, canonical URL, robots directive, and Open Graph / Twitter card tags (using the app favicon and logo as the tab and social share images), with a list icon in the page heading
-- **Public Lists Showcase**: The landing page highlights the 10 most recently published filter lists (across all users) in a compact table above the FAQ, each name linking to its public URL
-- **Smart Sorting**: Sort by username, visits, last visit date, creation date, and update date
-- **Search Functionality**: Quick search for specific creator usernames
-- **Customizable Columns**: Show or hide dashboard table columns via a multiselect in the filters section; all columns are shown by default and your selection is saved in the browser (localStorage) across visits
-- **Responsive Design**: Fully responsive UI that works on desktop, tablet, and mobile
-- **Dark Mode**: Native dark mode support for comfortable viewing
-- **Real-time Updates**: Visit counts update in real-time without page refresh
-- **Pagination**: Browse through profiles with efficient pagination
+- **Multi-network profiles:** Track creators across Instagram, TikTok, X/Twitter, YouTube, and other sources.
+- **Visit tracking:** Record profile visits and sort or filter by visit count and recency.
+- **Favorites and tags:** Keep important profiles close and organize them with reusable tags.
+- **Advanced filtering:** Filter by source, status, favorites, visit data, and other profile attributes.
+- **Shareable filter lists:** Publish a named dashboard filter set at a revocable public URL.
+- **Public discovery:** Showcase the ten most recently published filter lists on the landing page.
+- **YouTube fetching:** Fetch and track new channel items with request budgeting, retries, and queued jobs.
+- **Customizable columns:** Choose which dashboard columns are visible and retain the selection in the browser.
+- **Responsive interface:** Use the application across desktop and mobile layouts, including dark mode.
+- **Localized interface:** Switch between English and Serbian.
 
 [⬆ back to top](#table-of-contents)
 
@@ -63,59 +50,53 @@ A modern, centralized platform to track and manage your favorite creators and in
 
 ## Tech Stack
 
-- **Backend**: Laravel 13 with PHP 8.5
-- **Frontend**: Blade Templates with Alpine.js
-- **Styling**: Tailwind CSS
-- **Database**: MySQL/MariaDB
-- **Testing**: PHPUnit
-- **Code Quality**: Pint (Laravel code style fixer), PHPStan
+- **Backend:** PHP 8.5 and Laravel 13
+- **Frontend:** Blade, Alpine.js, Tailwind CSS, and Vite
+- **Database:** MySQL 8.4 in Docker; SQLite is used by CI
+- **Testing:** PHPUnit with a required minimum coverage of 85%
+- **Quality:** Rector, Peck, Laravel Pint, and PHPStan/Larastan
 
 [⬆ back to top](#table-of-contents)
 
 ---
 
-## Requirements
+## Install
 
-### Without Docker
+### Requirements
 
-- PHP 8.5
-- Composer
-- MySQL/MariaDB 5.7+
-- Node.js 16+ (for asset compilation)
+- PHP 8.5 with the extensions required by [`composer.json`](composer.json)
+- Composer 2
+- Node.js 22 or newer with npm
+- MySQL or MariaDB
 
-### With Docker
+Docker users only need Docker 24+ and Docker Compose v2+; see [Docker](#docker).
 
-- Docker 24+
-- Docker Compose v2+
+### Local Setup
 
-[⬆ back to top](#table-of-contents)
-
----
-
-## Installation
-
-### 1. Clone the repository
+Clone the repository and create local environment files:
 
 ```bash
 git clone https://github.com/zlatanstajic/starboard.git
 cd starboard
+cp .env.example .env
+cp .env.example .env.testing
 ```
 
-### 2. Setup the project
-
-Adjust environment variables in `.env` file and run:
+Configure the database and any optional integrations in `.env`, then run:
 
 ```bash
 composer setup
 ```
 
-This command will:
-- Install PHP dependencies
-- Install Node.js dependencies
-- Generate application key
-- Run database migrations
-- Seed the database with sample data
-- Build frontend assets
+The setup script installs PHP and Node.js dependencies, generates the application key, recreates and seeds the database, builds frontend assets, and runs the complete quality suite. Because it runs `migrate:fresh`, it deletes existing data in the configured development database.
+
+Start the local application, queue listener, log viewer, and Vite development server with:
+
+```bash
+composer run serve
+```
+
+The application is available at `http://localhost:8000` by default.
 
 [⬆ back to top](#table-of-contents)
 
@@ -123,111 +104,61 @@ This command will:
 
 ## Docker
 
-The project ships with a production-ready Docker setup using a multi-stage `Dockerfile` and a `docker-compose.yml` that orchestrates three services: `app` (PHP-FPM), `nginx`, and `mysql`. The application image runs PHP-FPM 8.5.
+The production-oriented Docker setup uses a multi-stage [`Dockerfile`](Dockerfile) and three services in [`docker-compose.yml`](docker-compose.yml): `app` (PHP-FPM), `nginx`, and `mysql`.
 
 ### Quick Start
 
 ```bash
-# 1. Copy and configure environment variables
+# Create and configure the local environment
 cp .env.example .env
 
-# 2. Build the image and start all services
+# Build the image and start all services
 docker compose up -d --build
 
-# 3. Seed the database (first run only)
+# Seed the database on first run
 docker compose exec app php artisan db:seed
 ```
 
-The application will be available at `http://localhost:18000`.
-
-This repository uses Docker Compose directly. The `app` container entrypoint automatically generates `APP_KEY` when it is missing and runs database migrations on startup. The Compose services are `app`, `nginx`, and `mysql`.
+The application is available at `http://localhost:18000`. The container entrypoint generates a missing `APP_KEY` and runs database migrations whenever the application container starts.
 
 ### Environment Variables
 
-Override any of these in your `.env` file before running `docker compose up`:
+Override these values in `.env` before starting the services:
 
 | Variable | Default | Description |
 |---|---|---|
-| `APP_KEY` | *(auto-generated)* | Laravel application key |
+| `APP_KEY` | Generated when missing | Laravel application key |
 | `APP_PORT` | `18000` | Host port mapped to nginx |
 | `DB_DATABASE` | `starboard` | MySQL database name |
 | `DB_USERNAME` | `starboard` | MySQL user |
 | `DB_PASSWORD` | `secret` | MySQL user password |
 | `DB_ROOT_PASSWORD` | `rootsecret` | MySQL root password |
 
-**Note**: MySQL is exposed on port `13306` externally and `3306` internally within Docker.
+MySQL is exposed on host port `13306` and uses port `3306` inside the Docker network. Additional application and YouTube fetch settings are documented in [`.env.example`](.env.example) and [`docs/YOUTUBE_FETCH_RUNBOOK.md`](docs/YOUTUBE_FETCH_RUNBOOK.md).
 
 ### Common Commands
 
 ```bash
-# Start services
-docker compose up -d
-
 # Check service status
 docker compose ps
-
-# Stop services
-docker compose down
-
-# Rebuild after code changes
-docker compose up -d --build
 
 # Stream application logs
 docker compose logs -f app
 
-# Run Artisan commands
+# Run an Artisan command
 docker compose exec app php artisan <command>
 
-# Open a shell inside the app container
+# Open a shell in the application container
 docker compose exec app bash
 
-# Run database migrations
-docker compose exec app php artisan migrate
+# Rebuild after Docker or dependency changes
+docker compose up -d --build
 
-# Seed the database
-docker compose exec app php artisan db:seed
-
-# Stop everything and reset the database
-docker compose down -v
+# Stop services
+docker compose down
 ```
 
-### Docker File Structure
-
-```
-docker/
-├── entrypoint.sh       # Container startup script (migrations, cache)
-├── nginx/
-│   └── default.conf    # Nginx virtual host configuration
-└── php/
-    └── php.ini         # PHP production settings
-Dockerfile              # Multi-stage build (node → composer → app)
-docker-compose.yml      # Service definitions
-.dockerignore           # Files excluded from the build context
-```
-
-[⬆ back to top](#table-of-contents)
-
----
-
-## Configuration
-
-### Environment Variables
-
-Key environment variables to configure in `.env`.
-
-[⬆ back to top](#table-of-contents)
-
----
-
-## Usage
-
-### Starting the Development Server
-
-```bash
-composer run serve
-```
-
-The application will be available at `http://localhost:8000`
+The runtime image contains production dependencies only. Run Composer and the complete development quality suite through the [local setup](#local-setup), not inside the production container.
 
 [⬆ back to top](#table-of-contents)
 
@@ -235,21 +166,44 @@ The application will be available at `http://localhost:8000`
 
 ## Testing
 
-### Run All Tests
+Run the complete quality suite:
 
 ```bash
 composer run test
+```
+
+This checks Rector, Peck, Pint, PHPStan, and PHPUnit. PHPUnit enforces at least 85% coverage and requires a configured `.env.testing` file.
+
+During development, run the smallest relevant PHPUnit test first:
+
+```bash
+php artisan test --compact tests/Feature/ExampleTest.php
+
+# Or filter by test method name
+php artisan test --compact --filter=test_name
 ```
 
 [⬆ back to top](#table-of-contents)
 
 ---
 
-## Code Quality
+## Continuous Integration
+
+Pushes to `master` and branches matching `issues/*` run the complete quality suite with PHP 8.5 and Node.js 24 through [`.github/workflows/tests.yml`](.github/workflows/tests.yml). Branch names are kebab-case, for example `issues/12-short-description`; any other branch name gets no CI run.
 
 ### Pre-commit Hook
 
-- A Husky pre-commit hook is present at `.husky/pre-commit` and runs the test suite via `composer run test`. Commits may be blocked if tests fail; run `composer run test` locally to reproduce the check.
+The repository includes a Husky hook at [`.husky/pre-commit`](.husky/pre-commit) that runs `composer run test` before each commit. It is installed by npm's `prepare` script when dependencies are installed. To install or refresh it explicitly, run:
+
+```bash
+npm run prepare
+```
+
+A failing check aborts the commit. Run `composer run test` directly to reproduce the failure. Bypass the hook for a single commit only when necessary with:
+
+```bash
+git commit --no-verify
+```
 
 [⬆ back to top](#table-of-contents)
 
@@ -265,6 +219,6 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to pro
 
 ## License
 
-This project is licensed under the MIT License, see the [LICENSE](LICENSE.md) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE.md) file for details.
 
 [⬆ back to top](#table-of-contents)
