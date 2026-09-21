@@ -8,6 +8,7 @@
 /storage/debugbar
 /storage/pail
 /vendor
+.agency
 .claude
 .vscode
 .env

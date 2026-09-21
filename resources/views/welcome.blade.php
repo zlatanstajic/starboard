@@ -8,8 +8,7 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-        <link rel="icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
-        <link rel="shortcut icon" href="{{ asset('logo.png') }}" type="image/x-icon">
+        <x-head-web-app />
     </head>
     <body class="bg-[#FDFDFC] dark:bg-[#0a0a0a] text-[#1b1b18] dark:text-[#EDEDEC] antialiased flex flex-col min-h-dvh">
 
@@ -67,7 +66,7 @@
                                     <th class="whitespace-nowrap px-6 py-4 font-medium text-gray-900 dark:text-white" scope="row">
                                         <a href="{{ $publicFilterList->publicUrl() }}" title="{{ $publicFilterList->publicUrl() }}" class="text-indigo-600 hover:underline dark:text-indigo-400">{{ $publicFilterList->name }}</a>
                                     </th>
-                                    <td class="px-6 py-4">{{ $publicFilterList->description ?: '-' }}</td>
+                                    <td class="whitespace-nowrap px-6 py-4" title="{{ $publicFilterList->description }}">{{ $publicFilterList->description ? Str::limit($publicFilterList->description, 45, '...') : '-' }}</td>
                                     <td class="whitespace-nowrap px-6 py-4">{{ $publicFilterList->createdAtShort }}</td>
                                 </tr>
                             @empty

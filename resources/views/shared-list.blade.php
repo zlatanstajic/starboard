@@ -76,15 +76,15 @@
                         <tbody>
                             @forelse($networkProfiles as $profile)
                                 <tr class="border-b bg-white transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700">
-                                    <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                                    <td class="whitespace-nowrap px-6 py-4 font-medium text-gray-900 dark:text-white">
                                         <a href="{{ $profile->profileUrl() }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-indigo-600 hover:underline dark:text-indigo-400">
                                             <x-source-icon :slug="$profile->networkSource?->icon" :title="$profile->networkSource?->name" :fallback="$profile->networkSource !== null" class="h-4 w-4 shrink-0" />
                                             {{ $profile->title ?: '@'.$profile->username }}
                                         </a>
                                     </td>
-                                    <td class="px-6 py-4">{{ $profile->networkSource?->name ?? '-' }}</td>
-                                    <td class="px-6 py-4">{{ $profile->networkTags->pluck('name')->sort()->implode(', ') ?: '-' }}</td>
-                                    <td class="px-6 py-4">{{ $profile->description ?: '-' }}</td>
+                                    <td class="whitespace-nowrap px-6 py-4">{{ $profile->networkSource?->name ?? '-' }}</td>
+                                    <td class="whitespace-nowrap px-6 py-4" title="{{ $profile->networkTags->pluck('name')->sort()->implode(', ') }}">{{ Str::limit($profile->networkTags->pluck('name')->sort()->implode(', '), 30, '...') ?: '-' }}</td>
+                                    <td class="whitespace-nowrap px-6 py-4" title="{{ $profile->description }}">{{ $profile->description ? Str::limit($profile->description, 45, '...') : '-' }}</td>
                                 </tr>
                             @empty
                                 <tr>

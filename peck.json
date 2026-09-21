@@ -49,7 +49,11 @@
             "deterministically",
             "img",
             "og",
-            "erroring"
+            "erroring",
+            "whitespace",
+            "webmanifest",
+            "url's",
+            "nowrap"
         ],
         "paths": []
     }

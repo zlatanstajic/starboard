@@ -10,7 +10,7 @@
         }
     ],
     "keywords": ["laravel", "framework", "starboard", "creator", "content", "aggregator"],
-    "license": "proprietary",
+    "license": "MIT",
     "require": {
         "ext-ctype": "*",
         "ext-curl": "*",

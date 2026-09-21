@@ -28,10 +28,7 @@
         <meta name="twitter:description" content="{{ $metaDescription() }}">
         <meta name="twitter:image" content="{{ asset('logo.png') }}">
         <meta name="twitter:image:alt" content="{{ config('app.name', 'Starboard') }}">
-        <meta name="theme-color" content="#0f172a">
-        <link rel="apple-touch-icon" href="{{ asset('logo.png') }}">
-        <link rel="icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
-        <link rel="shortcut icon" href="{{ asset('logo.png') }}" type="image/x-icon">
+        <x-head-web-app />
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
         @vite(['resources/css/app.css', 'resources/js/app.js'])

@@ -67,7 +67,7 @@
                                 @forelse($filterLists as $filterList)
                                     <tr class="border-b bg-white transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-600">
                                         <td class="px-6 py-4" data-col="number" x-show="columns.number">{{ $filterLists->firstItem() + $loop->index }}</td>
-                                        <td class="px-6 py-4 font-medium" data-col="name" x-show="columns.name">
+                                        <td class="whitespace-nowrap px-6 py-4 font-medium" data-col="name" x-show="columns.name">
                                             <a href="{{ $filterList->publicUrl() }}" target="_blank" rel="noopener noreferrer" title="{{ $filterList->publicUrl() }}" class="text-indigo-600 hover:underline dark:text-indigo-400">{{ Str::limit($filterList->name, 35, '...') }}</a>
                                         </td>
                                         <td class="px-6 py-4" data-col="status" x-show="columns.status">
@@ -77,8 +77,8 @@
                                                 <span class="rounded bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-300">{{ __('messages.filter_list.unpublished_status') }}</span>
                                             @endif
                                         </td>
-                                        <td class="px-6 py-4" data-col="description" x-show="columns.description">{{ $filterList->description ? Str::limit($filterList->description, 45, '...') : '-' }}</td>
-                                        <td class="px-6 py-4" data-col="filters" x-show="columns.filters">
+                                        <td class="whitespace-nowrap px-6 py-4" data-col="description" x-show="columns.description">{{ $filterList->description ? Str::limit($filterList->description, 45, '...') : '-' }}</td>
+                                        <td class="whitespace-nowrap px-6 py-4" data-col="filters" x-show="columns.filters">
                                             @forelse($describedFilters[$filterList->id] ?? [] as $describedFilter)
                                                 <span class="mb-1 mr-1 inline-block whitespace-nowrap rounded bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300">
                                                     <span class="font-semibold">{{ $describedFilter['label'] }}:</span>

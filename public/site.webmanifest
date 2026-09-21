@@ -1,0 +1,19 @@
+{
+    "id": "/",
+    "name": "Starboard",
+    "short_name": "Starboard",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "theme_color": "#0f172a",
+    "background_color": "#0f172a",
+    "icons": [
+        {
+            "src": "/logo.png",
+            "type": "image/png",
+            "sizes": "800x800",
+            "purpose": "any"
+        }
+    ]
+}

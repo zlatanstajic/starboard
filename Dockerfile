@@ -10,7 +10,9 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Install PHP dependencies
-FROM composer:2.8 AS composer-builder
+# Pinned to a composer image whose own PHP matches the app's "php": "^8.5"
+# requirement, so the autoloader is generated on the runtime's PHP version.
+FROM composer:2.10 AS composer-builder
 
 WORKDIR /app
 
@@ -23,7 +25,9 @@ RUN composer install \
     --ignore-platform-reqs
 
 COPY . .
-RUN composer dump-autoload --optimize
+# --ignore-platform-reqs as above: ext-pdo_mysql is installed in the runtime
+# stage, not here. Stage 3 verifies the real platform with check-platform-reqs.
+RUN composer dump-autoload --optimize --ignore-platform-reqs
 
 # Stage 3: Production image
 FROM php:8.5-fpm-alpine AS production
@@ -43,18 +47,20 @@ RUN apk add --no-cache \
     unzip \
     zip
 
-# Install PHP extensions
+# Install PHP extensions.
+# dom, mbstring, pdo and Zend OPcache are already built into
+# php:8.5-fpm-alpine, so they are not listed. Recompiling dom fails on PHP 8.5,
+# whose ext/dom needs the lexbor headers the Alpine image does not ship, and
+# installing a built-in extension leaves no module for make to copy. Stage 3's
+# check-platform-reqs still proves every ext-* in composer.json is satisfied,
+# and docker/php/php.ini tunes the OPcache that ships with the image.
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
         bcmath \
-        dom \
         gd \
-        mbstring \
-        pdo \
         pdo_mysql \
         pcntl \
-        zip \
-        opcache
+        zip
 
 # Copy application from previous stages
 COPY --from=composer-builder /app ./
