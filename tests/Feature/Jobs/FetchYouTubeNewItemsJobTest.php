@@ -45,6 +45,7 @@ class FetchYouTubeNewItemsJobTest extends TestCase
                 now()->subDays(3),
                 now()->subWeeks(2),
             ])),
+            'www.googleapis.com/youtube/v3/videos*' => Http::response($this->videoPayload(2)),
         ]);
         $profile = $this->youtubeProfile(now()->subDays(7));
         $job = new FetchYouTubeNewItemsJob($profile);
@@ -54,7 +55,7 @@ class FetchYouTubeNewItemsJobTest extends TestCase
         $this->assertSame(2, $profile->fresh()->new_items);
         $this->assertSame(self::CHANNEL_ID, $profile->fresh()->youtube_channel_id);
         $this->assertSame(YouTubeFetchOutcome::Success->value, YouTubeFetchRun::query()->where('uuid', $job->runUuid)->value('outcome'));
-        Http::assertSentCount(2);
+        Http::assertSentCount(3);
     }
 
     public function test_uncached_job_resolves_handle_and_sends_server_key_in_header_only(): void
@@ -89,6 +90,7 @@ class FetchYouTubeNewItemsJobTest extends TestCase
         Http::fake([
             'www.googleapis.com/youtube/v3/channels*' => Http::response($this->channelPayload()),
             'www.googleapis.com/youtube/v3/playlistItems*' => Http::response($this->playlistPayload([now()->subHour()])),
+            'www.googleapis.com/youtube/v3/videos*' => Http::response($this->videoPayload()),
         ]);
         $profile = $this->youtubeProfile(now()->subDay(), cached: true);
 
@@ -115,11 +117,18 @@ class FetchYouTubeNewItemsJobTest extends TestCase
                 return Http::response($this->channelPayload());
             }
 
+            if (str_contains($request->url(), '/videos')) {
+                $query = [];
+                parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+
+                return Http::response($this->videoPayload(1, ($query['id'] ?? null) === 'video000002' ? 2 : 1));
+            }
+
             $query = [];
             parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
 
             return ($query['pageToken'] ?? null) === 'second'
-                ? Http::response($this->playlistPayload([now()->subHours(2)]))
+                ? Http::response($this->playlistPayload([now()->subHours(2)], firstVideoNumber: 2))
                 : Http::response($this->playlistPayload([now()->subHour()], 'second'));
         });
         $profile = $this->youtubeProfile(now()->subDay(), cached: true);
@@ -127,7 +136,7 @@ class FetchYouTubeNewItemsJobTest extends TestCase
         new FetchYouTubeNewItemsJob($profile)->handle();
 
         $this->assertSame(2, $profile->fresh()->new_items);
-        Http::assertSentCount(3);
+        Http::assertSentCount(5);
     }
 
     public function test_job_writes_new_items_when_run_through_sync_queue(): void
@@ -138,6 +147,7 @@ class FetchYouTubeNewItemsJobTest extends TestCase
                 now()->subHours(2),
                 now()->subDays(3),
             ])),
+            'www.googleapis.com/youtube/v3/videos*' => Http::response($this->videoPayload(2)),
         ]);
         $profile = $this->youtubeProfile(now()->subDays(7));
 
@@ -251,14 +261,18 @@ class FetchYouTubeNewItemsJobTest extends TestCase
      * @param  list<Carbon>  $publishedAts
      * @return array<string, mixed>
      */
-    private function playlistPayload(array $publishedAts, ?string $nextPageToken = null): array
+    private function playlistPayload(array $publishedAts, ?string $nextPageToken = null, int $firstVideoNumber = 1): array
     {
         $payload = [
             'items' => array_map(
-                fn (Carbon $publishedAt): array => [
-                    'contentDetails' => ['videoPublishedAt' => $publishedAt->toISOString()],
+                fn (Carbon $publishedAt, int $index): array => [
+                    'contentDetails' => [
+                        'videoId' => sprintf('video%06d', $index + $firstVideoNumber),
+                        'videoPublishedAt' => $publishedAt->toISOString(),
+                    ],
                 ],
                 $publishedAts,
+                array_keys($publishedAts),
             ),
         ];
 
@@ -267,5 +281,19 @@ class FetchYouTubeNewItemsJobTest extends TestCase
         }
 
         return $payload;
+    }
+
+    /** @return array<string, mixed> */
+    private function videoPayload(int $count = 1, int $firstVideoNumber = 1): array
+    {
+        return [
+            'items' => array_map(
+                fn (int $index): array => [
+                    'id' => sprintf('video%06d', $index + $firstVideoNumber),
+                    'contentDetails' => ['duration' => 'PT4M'],
+                ],
+                range(0, $count - 1),
+            ),
+        ];
     }
 }

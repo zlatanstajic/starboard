@@ -24,6 +24,8 @@ class YouTubeVideoFetchService
 
     private const string PLAYLIST_ITEMS_URL = 'https://www.googleapis.com/youtube/v3/playlistItems';
 
+    private const string VIDEOS_URL = 'https://www.googleapis.com/youtube/v3/videos';
+
     /** @var list<string> */
     private const array CONFIGURATION_REASONS = [
         'keyInvalid',
@@ -133,6 +135,7 @@ class YouTubeVideoFetchService
         $publishedTimes = [];
         $nextPageToken = null;
         $seenPageTokens = [];
+        $seenVideoIds = [];
         $lastResponse = $channelResponse;
         $maxPages = (int) config('youtube.max_pages');
 
@@ -141,7 +144,7 @@ class YouTubeVideoFetchService
                 'part' => 'contentDetails',
                 'playlistId' => $uploadsPlaylistId,
                 'maxResults' => '50',
-                'fields' => 'nextPageToken,items(contentDetails/videoPublishedAt)',
+                'fields' => 'nextPageToken,items(contentDetails/videoId,contentDetails/videoPublishedAt)',
             ];
 
             if ($nextPageToken !== null) {
@@ -173,9 +176,61 @@ class YouTubeVideoFetchService
                 return $this->failureFromResponse(YouTubeFetchOutcome::MalformedApiResponse, 'playlist', $playlistResponse, $requestCount, $duration);
             }
 
-            $publishedTimes = [...$publishedTimes, ...$pageData['published_times']];
+            foreach ($pageData['videos'] as $video) {
+                if (isset($seenVideoIds[$video['id']])) {
+                    return $this->failureFromResponse(YouTubeFetchOutcome::MalformedApiResponse, 'playlist', $playlistResponse, $requestCount, $duration);
+                }
 
-            if ($snapshotCutoff !== null && $this->containsTimestampBefore($pageData['published_times'], $snapshotCutoff)) {
+                $seenVideoIds[$video['id']] = true;
+            }
+
+            $pageVideos = array_filter(
+                $pageData['videos'],
+                fn (array $video): bool => $snapshotCutoff === null || $video['published_at']->greaterThanOrEqualTo($snapshotCutoff),
+            );
+
+            if ($pageVideos !== []) {
+                $videoIds = array_values(array_map(fn (array $video): string => $video['id'], $pageVideos));
+                $videoResponse = $this->request(
+                    self::VIDEOS_URL,
+                    [
+                        'part' => 'contentDetails',
+                        'id' => implode(',', $videoIds),
+                        'fields' => 'items(id,contentDetails/duration)',
+                    ],
+                    'video',
+                    $runUuid,
+                    $requestCount,
+                    $duration,
+                );
+
+                if ($videoResponse instanceof YouTubeProfileResult) {
+                    return $videoResponse;
+                }
+
+                $lastResponse = $videoResponse;
+
+                if (($failure = $this->classifyResponse($videoResponse, 'video', $requestCount, $duration)) !== null) {
+                    return $failure;
+                }
+
+                $longVideoIds = $this->parseVideoDurations($videoResponse->body, $videoIds);
+
+                if ($longVideoIds === null) {
+                    return $this->failureFromResponse(YouTubeFetchOutcome::MalformedApiResponse, 'video', $videoResponse, $requestCount, $duration);
+                }
+
+                foreach ($pageVideos as $video) {
+                    if (isset($longVideoIds[$video['id']])) {
+                        $publishedTimes[] = $video['published_at'];
+                    }
+                }
+            }
+
+            if ($snapshotCutoff !== null && $this->containsTimestampBefore(array_map(
+                fn (array $video): CarbonImmutable => $video['published_at'],
+                $pageData['videos'],
+            ), $snapshotCutoff)) {
                 $nextPageToken = null;
 
                 break;
@@ -382,7 +437,7 @@ class YouTubeVideoFetchService
         return [$channelId, $uploadsPlaylistId];
     }
 
-    /** @return array{published_times: list<CarbonImmutable>, next_page_token: ?string}|null */
+    /** @return array{videos: list<array{id: string, published_at: CarbonImmutable}>, next_page_token: ?string}|null */
     private function parsePlaylistPage(string $body): ?array
     {
         $json = $this->decodeJsonObject($body);
@@ -391,7 +446,7 @@ class YouTubeVideoFetchService
             return null;
         }
 
-        $publishedTimes = [];
+        $videos = [];
 
         foreach ($json['items'] as $item) {
             if (! is_array($item) || ! is_array($item['contentDetails'] ?? null)) {
@@ -399,12 +454,17 @@ class YouTubeVideoFetchService
             }
 
             $publishedAt = $item['contentDetails']['videoPublishedAt'] ?? null;
+            $videoId = $item['contentDetails']['videoId'] ?? null;
 
-            if (! is_string($publishedAt) || ($timestamp = $this->parseTimestamp($publishedAt)) === null) {
+            if (! is_string($videoId)
+                || preg_match('/^[A-Za-z0-9_-]{11}$/D', $videoId) !== 1
+                || ! is_string($publishedAt)
+                || ($timestamp = $this->parseTimestamp($publishedAt)) === null
+            ) {
                 return null;
             }
 
-            $publishedTimes[] = $timestamp;
+            $videos[] = ['id' => $videoId, 'published_at' => $timestamp];
         }
 
         $nextPageToken = $json['nextPageToken'] ?? null;
@@ -414,9 +474,66 @@ class YouTubeVideoFetchService
         }
 
         return [
-            'published_times' => $publishedTimes,
+            'videos' => $videos,
             'next_page_token' => $nextPageToken,
         ];
+    }
+
+    /**
+     * @param  list<string>  $expectedIds
+     * @return array<string, true>|null
+     */
+    private function parseVideoDurations(string $body, array $expectedIds): ?array
+    {
+        $json = $this->decodeJsonObject($body);
+
+        if ($json === null || ! isset($json['items']) || ! is_array($json['items']) || ! array_is_list($json['items'])) {
+            return null;
+        }
+
+        $expected = array_fill_keys($expectedIds, true);
+        $seen = [];
+        $longVideoIds = [];
+
+        foreach ($json['items'] as $item) {
+            $id = is_array($item) ? ($item['id'] ?? null) : null;
+            $duration = is_array($item) && is_array($item['contentDetails'] ?? null)
+                ? ($item['contentDetails']['duration'] ?? null)
+                : null;
+
+            if (! is_string($id) || ! isset($expected[$id]) || isset($seen[$id]) || ! is_string($duration)) {
+                return null;
+            }
+
+            $seconds = $this->durationSeconds($duration);
+
+            if ($seconds === null) {
+                return null;
+            }
+
+            $seen[$id] = true;
+
+            if ($seconds > 180) {
+                $longVideoIds[$id] = true;
+            }
+        }
+
+        return count($seen) === count($expected) ? $longVideoIds : null;
+    }
+
+    private function durationSeconds(string $duration): ?int
+    {
+        if (preg_match('/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/D', $duration, $parts) !== 1
+            || str_ends_with($duration, 'T')
+            || ! preg_match('/\d+[DHMS]/', $duration)
+        ) {
+            return null;
+        }
+
+        return (min(181, (int) ($parts[1] ?? 0)) * 86400)
+            + (min(181, (int) ($parts[2] ?? 0)) * 3600)
+            + (min(181, (int) ($parts[3] ?? 0)) * 60)
+            + min(181, (int) ($parts[4] ?? 0));
     }
 
     /** @return array<string, mixed>|null */

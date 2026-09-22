@@ -40,23 +40,19 @@ class NetworkProfileController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): View|RedirectResponse
+    public function index(): View
     {
-        try {
-            $networkSources = $this->networkSourceService->getAll();
-            $networkTags = $this->networkTagService->getAll();
-            $networkProfiles = $this->networkProfileService->getAll();
-            $youtubeFetchEnabled = (bool) config('youtube.execution_enabled') && (bool) config('youtube.ui_enabled');
-            $youtubeFetchAvailability = $this->youtubeRequestBudget->availability();
+        $networkSources = $this->networkSourceService->getAll();
+        $networkTags = $this->networkTagService->getAll();
+        $networkProfiles = $this->networkProfileService->getAll();
+        $youtubeFetchEnabled = (bool) config('youtube.execution_enabled') && (bool) config('youtube.ui_enabled');
+        $youtubeFetchAvailability = $youtubeFetchEnabled
+            ? $this->youtubeRequestBudget->availability()
+            : ['circuit_open' => false, 'budget_exhausted' => false];
 
-            return $this->handleView(
-                compact('networkSources', 'networkProfiles', 'networkTags', 'youtubeFetchEnabled', 'youtubeFetchAvailability')
-            );
-        } catch (Exception $e) {
-            $this->handleException($e);
-        }
-
-        return $this->handleRedirect();
+        return $this->handleView(
+            compact('networkSources', 'networkProfiles', 'networkTags', 'youtubeFetchEnabled', 'youtubeFetchAvailability')
+        );
     }
 
     /**

@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\FilterListService;
 use App\Services\NetworkProfileService;
 use App\Services\NetworkSourceService;
+use App\Services\YouTube\YouTubeRequestBudget;
 use Exception;
 use Illuminate\Bus\Batch;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -315,7 +316,7 @@ class NetworkProfileControllerTest extends TestCase
         $filterList->forceDelete();
     }
 
-    public function test_index_handles_exception_and_redirects(): void
+    public function test_index_returns_an_error_instead_of_redirecting_to_itself(): void
     {
         $user = User::factory()->create();
 
@@ -324,14 +325,29 @@ class NetworkProfileControllerTest extends TestCase
 
         $this->app->instance(NetworkSourceService::class, $networkSourceService);
 
-        Alert::shouldReceive('error')
-            ->once()
-            ->with(__('messages.default.failed'), 'boom');
-
         $response = $this->actingAs($user)->get(route('dashboard'));
 
-        $this->assertTrue($response->isRedirect());
-        $this->assertEquals(route('dashboard'), $response->headers->get('Location'));
+        $response->assertInternalServerError();
+        $this->assertFalse($response->isRedirect());
+    }
+
+    public function test_index_skips_youtube_budget_when_fetch_is_disabled(): void
+    {
+        config()->set('youtube.execution_enabled', false);
+        config()->set('youtube.ui_enabled', false);
+
+        $budget = Mockery::mock(YouTubeRequestBudget::class);
+        $budget->shouldNotReceive('availability');
+        $this->app->instance(YouTubeRequestBudget::class, $budget);
+
+        $response = $this->actingAs(User::factory()->create())->get(route('dashboard'));
+
+        $response->assertOk();
+        $response->assertViewHas('youtubeFetchEnabled', false);
+        $response->assertViewHas('youtubeFetchAvailability', [
+            'circuit_open' => false,
+            'budget_exhausted' => false,
+        ]);
     }
 
     public function test_store_calls_service_and_redirects(): void

@@ -53,6 +53,7 @@
             "whitespace",
             "webmanifest",
             "url's",
+            "durations",
             "nowrap"
         ],
         "paths": []

@@ -86,6 +86,7 @@ class YouTubeVideoFetchServiceTest extends TestCase
         $transport = new ScriptedYouTubeTransport([
             $this->channelResponse(),
             $this->playlistResponse([now()->subHour()->toISOString()]),
+            $this->videoResponse(['video000001' => 'PT3M1S']),
         ]);
 
         $result = $this->service($transport)->fetch($profile->id, $profile->user_id, $run->uuid);
@@ -101,14 +102,99 @@ class YouTubeVideoFetchServiceTest extends TestCase
             'part' => 'contentDetails',
             'playlistId' => self::UPLOADS_PLAYLIST_ID,
             'maxResults' => '50',
-            'fields' => 'nextPageToken,items(contentDetails/videoPublishedAt)',
+            'fields' => 'nextPageToken,items(contentDetails/videoId,contentDetails/videoPublishedAt)',
         ], $transport->requests[1]->query);
         $this->assertSame('https://www.googleapis.com/youtube/v3/playlistItems', $transport->requests[1]->url);
+        $this->assertSame([
+            'part' => 'contentDetails',
+            'id' => 'video000001',
+            'fields' => 'items(id,contentDetails/duration)',
+        ], $transport->requests[2]->query);
+        $this->assertSame('https://www.googleapis.com/youtube/v3/videos', $transport->requests[2]->url);
         $this->assertSame(self::CHANNEL_ID, $profile->fresh()->youtube_channel_id);
         $this->assertSame(1, $profile->fresh()->new_items);
-        $this->assertSame(2, $result->requestCount);
-        $this->assertSame(2, $run->fresh()->request_count);
-        $this->assertSame(2, YouTubeFetchDailyBudget::query()->firstOrFail()->reserved_requests);
+        $this->assertSame(3, $result->requestCount);
+        $this->assertSame(3, $run->fresh()->request_count);
+        $this->assertSame(3, YouTubeFetchDailyBudget::query()->firstOrFail()->reserved_requests);
+    }
+
+    public function test_duration_boundary_counts_only_videos_longer_than_180_seconds(): void
+    {
+        $cutoff = now()->subDay();
+        [$profile, $run] = $this->profileAndRun(lastVisitAt: $cutoff, newItems: 7);
+        $transport = new ScriptedYouTubeTransport([
+            $this->channelResponse(),
+            $this->playlistResponse([
+                now()->subHour()->toISOString(),
+                now()->subHours(2)->toISOString(),
+                $cutoff->toISOString(),
+            ]),
+            $this->videoResponse([
+                'video000001' => 'PT2M59S',
+                'video000002' => 'PT3M',
+                'video000003' => 'PT3M1S',
+            ]),
+        ]);
+
+        $result = $this->service($transport)->fetch($profile->id, $profile->user_id, $run->uuid);
+
+        $this->assertSame(YouTubeFetchOutcome::Success, $result->outcome);
+        $this->assertSame(1, $profile->fresh()->new_items);
+        $this->assertSame('video000001,video000002,video000003', $transport->requests[2]->query['id']);
+        $this->assertSame(3, $result->requestCount);
+    }
+
+    public function test_page_with_only_short_videos_succeeds_with_zero_count(): void
+    {
+        [$profile, $run] = $this->profileAndRun(newItems: 7);
+        $transport = new ScriptedYouTubeTransport([
+            $this->channelResponse(),
+            $this->playlistResponse([now()->subHour()->toISOString(), now()->subHours(2)->toISOString()]),
+            $this->videoResponse(['video000001' => 'PT2M59S', 'video000002' => 'PT3M']),
+        ]);
+
+        $result = $this->service($transport)->fetch($profile->id, $profile->user_id, $run->uuid);
+
+        $this->assertSame(YouTubeFetchOutcome::Success, $result->outcome);
+        $this->assertSame(0, $profile->fresh()->new_items);
+    }
+
+    public function test_page_with_only_short_videos_does_not_stop_pagination(): void
+    {
+        [$profile, $run] = $this->profileAndRun();
+        $transport = new ScriptedYouTubeTransport([
+            $this->channelResponse(),
+            $this->playlistResponse([now()->subHour()->toISOString()], 'page-2'),
+            $this->videoResponse(['video000001' => 'PT3M']),
+            $this->playlistResponse([now()->subHours(2)->toISOString()], firstVideoNumber: 2),
+            $this->videoResponse(['video000002' => 'PT3M1S']),
+        ]);
+
+        $result = $this->service($transport)->fetch($profile->id, $profile->user_id, $run->uuid);
+
+        $this->assertSame(YouTubeFetchOutcome::Success, $result->outcome);
+        $this->assertSame(1, $profile->fresh()->new_items);
+        $this->assertSame('page-2', $transport->requests[3]->query['pageToken']);
+        $this->assertSame(5, $run->fresh()->request_count);
+    }
+
+    public function test_repeated_video_id_across_pages_fails_without_partial_persistence(): void
+    {
+        [$profile, $run] = $this->profileAndRun(cached: false, newItems: 8);
+        $transport = new ScriptedYouTubeTransport([
+            $this->channelResponse(),
+            $this->playlistResponse([now()->subHour()->toISOString()], 'page-2'),
+            $this->videoResponse(['video000001' => 'PT4M']),
+            $this->playlistResponse([now()->subHours(2)->toISOString()]),
+        ]);
+
+        $result = $this->service($transport)->fetch($profile->id, $profile->user_id, $run->uuid);
+
+        $this->assertSame(YouTubeFetchOutcome::MalformedApiResponse, $result->outcome);
+        $this->assertSame('playlist', $result->stage);
+        $this->assertCount(4, $transport->requests);
+        $this->assertNull($profile->fresh()->youtube_channel_id);
+        $this->assertSame(8, $profile->fresh()->new_items);
     }
 
     public function test_cached_channel_id_uses_id_selector_even_with_a_noncanonical_source(): void
@@ -147,18 +233,21 @@ class YouTubeVideoFetchServiceTest extends TestCase
                 now()->subHour()->toISOString(),
                 now()->subHours(3)->toISOString(),
             ], 'page-2'),
+            $this->videoResponse(['video000001' => 'PT4M', 'video000002' => 'PT4M']),
             $this->playlistResponse([
                 $cutoff->toISOString(),
                 $cutoff->copy()->subSecond()->toISOString(),
-            ], 'unused-page'),
+            ], 'unused-page', 3),
+            $this->videoResponse(['video000003' => 'PT4M']),
         ]);
 
         $result = $this->service($transport)->fetch($profile->id, $profile->user_id, $run->uuid);
 
         $this->assertSame(YouTubeFetchOutcome::Success, $result->outcome);
         $this->assertSame(3, $profile->fresh()->new_items);
-        $this->assertCount(3, $transport->requests);
-        $this->assertSame('page-2', $transport->requests[2]->query['pageToken']);
+        $this->assertCount(5, $transport->requests);
+        $this->assertSame('page-2', $transport->requests[3]->query['pageToken']);
+        $this->assertSame('video000003', $transport->requests[4]->query['id']);
     }
 
     public function test_pagination_cap_preserves_uncached_channel_id_and_previous_count(): void
@@ -168,7 +257,9 @@ class YouTubeVideoFetchServiceTest extends TestCase
         $transport = new ScriptedYouTubeTransport([
             $this->channelResponse(),
             $this->playlistResponse([now()->subHour()->toISOString()], 'page-2'),
-            $this->playlistResponse([now()->subDay()->toISOString()], 'page-3'),
+            $this->videoResponse(['video000001' => 'PT4M']),
+            $this->playlistResponse([now()->subDay()->toISOString()], 'page-3', 2),
+            $this->videoResponse(['video000002' => 'PT4M']),
         ]);
 
         $result = $this->service($transport)->fetch($profile->id, $profile->user_id, $run->uuid);
@@ -176,7 +267,7 @@ class YouTubeVideoFetchServiceTest extends TestCase
         $this->assertSame(YouTubeFetchOutcome::PaginationLimitExceeded, $result->outcome);
         $this->assertNull($profile->fresh()->youtube_channel_id);
         $this->assertSame(9, $profile->fresh()->new_items);
-        $this->assertCount(3, $transport->requests);
+        $this->assertCount(5, $transport->requests);
     }
 
     public function test_repeated_page_token_is_rejected_without_partial_persistence(): void
@@ -251,6 +342,90 @@ class YouTubeVideoFetchServiceTest extends TestCase
         $this->assertSame(0, $profile->fresh()->new_items);
     }
 
+    public function test_missing_duplicate_or_malformed_video_metadata_preserves_previous_values(): void
+    {
+        foreach ([
+            ['items' => []],
+            ['items' => [['id' => 'video000001', 'contentDetails' => []]]],
+            ['items' => [['id' => 'video000001', 'contentDetails' => ['duration' => 'PT']]]],
+            ['items' => [['id' => 'video000001', 'contentDetails' => ['duration' => 'PT4M']], ['id' => 'video000001', 'contentDetails' => ['duration' => 'PT4M']]]],
+            ['items' => [['id' => 'other000001', 'contentDetails' => ['duration' => 'PT4M']]]],
+        ] as $body) {
+            [$profile, $run] = $this->profileAndRun(cached: false, newItems: 8);
+            $transport = new ScriptedYouTubeTransport([
+                $this->channelResponse(),
+                $this->playlistResponse([now()->subHour()->toISOString()]),
+                $this->response(200, $body),
+            ]);
+
+            $result = $this->service($transport)->fetch($profile->id, $profile->user_id, $run->uuid);
+
+            $this->assertSame(YouTubeFetchOutcome::MalformedApiResponse, $result->outcome);
+            $this->assertSame('video', $result->stage);
+            $this->assertNull($profile->fresh()->youtube_channel_id);
+            $this->assertSame(8, $profile->fresh()->new_items);
+            $this->assertSame(3, $result->requestCount);
+        }
+    }
+
+    public function test_missing_or_repeated_playlist_video_id_preserves_previous_values(): void
+    {
+        foreach ([
+            $this->response(200, ['items' => [['contentDetails' => ['videoPublishedAt' => now()->subHour()->toISOString()]]]]),
+            $this->response(200, ['items' => [
+                ['contentDetails' => ['videoId' => 'video000001', 'videoPublishedAt' => now()->subHour()->toISOString()]],
+                ['contentDetails' => ['videoId' => 'video000001', 'videoPublishedAt' => now()->subHours(2)->toISOString()]],
+            ]]),
+        ] as $playlistResponse) {
+            [$profile, $run] = $this->profileAndRun(cached: false, newItems: 8);
+            $transport = new ScriptedYouTubeTransport([$this->channelResponse(), $playlistResponse]);
+
+            $result = $this->service($transport)->fetch($profile->id, $profile->user_id, $run->uuid);
+
+            $this->assertSame(YouTubeFetchOutcome::MalformedApiResponse, $result->outcome);
+            $this->assertNull($profile->fresh()->youtube_channel_id);
+            $this->assertSame(8, $profile->fresh()->new_items);
+            $this->assertSame(2, $result->requestCount);
+        }
+    }
+
+    public function test_video_metadata_api_failure_preserves_previous_values(): void
+    {
+        [$profile, $run] = $this->profileAndRun(cached: false, newItems: 8);
+        $transport = new ScriptedYouTubeTransport([
+            $this->channelResponse(),
+            $this->playlistResponse([now()->subHour()->toISOString()]),
+            $this->errorResponse(503, 'backendError'),
+        ]);
+
+        $result = $this->service($transport)->fetch($profile->id, $profile->user_id, $run->uuid);
+
+        $this->assertSame(YouTubeFetchOutcome::TransientHttpFailure, $result->outcome);
+        $this->assertSame('video', $result->stage);
+        $this->assertNull($profile->fresh()->youtube_channel_id);
+        $this->assertSame(8, $profile->fresh()->new_items);
+        $this->assertSame(3, $run->fresh()->request_count);
+    }
+
+    public function test_budget_exhaustion_before_video_metadata_preserves_previous_values(): void
+    {
+        config()->set('youtube.daily_request_limit', 2);
+        [$profile, $run] = $this->profileAndRun(cached: false, newItems: 8);
+        $transport = new ScriptedYouTubeTransport([
+            $this->channelResponse(),
+            $this->playlistResponse([now()->subHour()->toISOString()]),
+        ]);
+
+        $result = $this->service($transport)->fetch($profile->id, $profile->user_id, $run->uuid);
+
+        $this->assertSame(YouTubeFetchOutcome::RequestBudgetExhausted, $result->outcome);
+        $this->assertSame('video', $result->stage);
+        $this->assertCount(2, $transport->requests);
+        $this->assertSame(2, $run->fresh()->request_count);
+        $this->assertNull($profile->fresh()->youtube_channel_id);
+        $this->assertSame(8, $profile->fresh()->new_items);
+    }
+
     #[DataProvider('errorOutcomeProvider')]
     public function test_api_errors_are_mapped_by_status_reason_and_stage(
         int $status,
@@ -282,6 +457,7 @@ class YouTubeVideoFetchServiceTest extends TestCase
         $transport = new ScriptedYouTubeTransport([
             $this->channelResponse(),
             $this->playlistResponse([now()->subHour()->toISOString()], 'page-2'),
+            $this->videoResponse(['video000001' => 'PT4M']),
             $this->errorResponse(503, 'backendError'),
         ]);
 
@@ -321,6 +497,7 @@ class YouTubeVideoFetchServiceTest extends TestCase
 
                 return $this->playlistResponse([now()->subHour()->toISOString()]);
             },
+            $this->videoResponse(['video000001' => 'PT4M']),
         ]);
 
         $result = $this->service($transport)->fetch($profile->id, $profile->user_id, $run->uuid);
@@ -339,6 +516,7 @@ class YouTubeVideoFetchServiceTest extends TestCase
 
                 return $this->playlistResponse([now()->subHour()->toISOString()]);
             },
+            $this->videoResponse(['video000001' => 'PT4M']),
         ]);
 
         $result = $this->service($transport)->fetch($profile->id, $profile->user_id, $run->uuid);
@@ -362,6 +540,7 @@ class YouTubeVideoFetchServiceTest extends TestCase
 
                     return $this->playlistResponse([now()->subHour()->toISOString()]);
                 },
+                $this->videoResponse(['video000001' => 'PT4M']),
             ]);
 
             $result = $this->service($transport)->fetch($profile->id, $profile->user_id, $run->uuid);
@@ -438,12 +617,16 @@ class YouTubeVideoFetchServiceTest extends TestCase
     }
 
     /** @param list<string> $timestamps */
-    private function playlistResponse(array $timestamps, ?string $nextPageToken = null): YouTubeFetchResult
+    private function playlistResponse(array $timestamps, ?string $nextPageToken = null, int $firstVideoNumber = 1): YouTubeFetchResult
     {
         $body = [
             'items' => array_map(
-                fn (string $timestamp): array => ['contentDetails' => ['videoPublishedAt' => $timestamp]],
+                fn (string $timestamp, int $index): array => ['contentDetails' => [
+                    'videoId' => sprintf('video%06d', $index + $firstVideoNumber),
+                    'videoPublishedAt' => $timestamp,
+                ]],
                 $timestamps,
+                array_keys($timestamps),
             ),
         ];
 
@@ -452,6 +635,21 @@ class YouTubeVideoFetchServiceTest extends TestCase
         }
 
         return $this->response(200, $body);
+    }
+
+    /** @param array<string, string> $durations */
+    private function videoResponse(array $durations): YouTubeFetchResult
+    {
+        return $this->response(200, [
+            'items' => array_map(
+                fn (string $id, string $duration): array => [
+                    'id' => $id,
+                    'contentDetails' => ['duration' => $duration],
+                ],
+                array_keys($durations),
+                array_values($durations),
+            ),
+        ]);
     }
 
     private function errorResponse(int $status, string $reason): YouTubeFetchResult

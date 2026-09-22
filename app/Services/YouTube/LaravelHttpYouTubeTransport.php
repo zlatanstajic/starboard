@@ -19,6 +19,7 @@ final class LaravelHttpYouTubeTransport implements YouTubeTransport
     private const array ALLOWED_PATHS = [
         '/youtube/v3/channels',
         '/youtube/v3/playlistItems',
+        '/youtube/v3/videos',
     ];
 
     public function fetch(YouTubeFetchRequest $request): YouTubeFetchResult
