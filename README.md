@@ -27,6 +27,8 @@ A centralized Laravel application for tracking and organizing favorite creators 
 - [Continuous Integration](#continuous-integration)
   - [Pre-commit Hook](#pre-commit-hook)
 - [Contributing](#contributing)
+- [Code of Conduct](#code-of-conduct)
+- [Security](#security)
 - [License](#license)
 
 ---
@@ -189,7 +191,7 @@ php artisan test --compact --filter=test_name
 
 ## Continuous Integration
 
-Pushes to `master` and branches matching `issues/*` run the complete quality suite with PHP 8.5 and Node.js 24 through [`.github/workflows/tests.yml`](.github/workflows/tests.yml). Branch names are kebab-case, for example `issues/12-short-description`; any other branch name gets no CI run.
+Pushes to `master` and branches matching `issues/*`, plus pull requests targeting `master`, run the complete quality suite with PHP 8.5 and Node.js 24 through [`.github/workflows/tests.yml`](.github/workflows/tests.yml). Branch names are kebab-case, for example `issues/12-short-description`.
 
 ### Pre-commit Hook
 
@@ -212,6 +214,22 @@ git commit --no-verify
 ## Contributing
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to propose a change.
+
+[⬆ back to top](#table-of-contents)
+
+---
+
+## Code of Conduct
+
+See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for participation guidelines and how to report conduct concerns.
+
+[⬆ back to top](#table-of-contents)
+
+---
+
+## Security
+
+Report suspected vulnerabilities privately using [SECURITY.md](SECURITY.md).
 
 [⬆ back to top](#table-of-contents)
 

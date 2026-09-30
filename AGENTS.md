@@ -3,18 +3,18 @@
 
 # Starboard Project Rules
 
-## Commands: not Sail, and not bare on the host either
+## Commands: custom Docker runtime and local development tools
 
 - This is not a Sail project. `docker-compose.yml` defines a custom `app` (PHP-FPM) / `nginx` / `mysql` stack with no `laravel.test` service, so `vendor/bin/sail` cannot work here even though the package is installed. Ignore any instruction to prefix commands with `vendor/bin/sail`.
-- Run commands inside the app container: `docker compose exec app php artisan <command>`, `docker compose exec app composer test`. `storage/framework/views` and `bootstrap/cache` are owned by the container user, so a host-side `php artisan` that compiles Blade (which includes `php artisan test` and `php artisan boost:update`) fails on PHP 8.5 with `ErrorException: tempnam(): file created in the system's temporary directory`. That error means a permissions problem, never a Blade or view bug: do not "fix" application code in response to it.
+- Run application Artisan commands inside the app container with `docker compose exec app php artisan <command>`. The Compose `app` image is production-only: it lacks Composer and development dependencies, so run `composer test` and other quality commands in a local PHP 8.5 development environment with Composer dependencies and a coverage driver. If container-owned `storage/framework/views` or `bootstrap/cache` blocks host-side Artisan or tests, fix permissions on those generated directories. A `tempnam()` warning from Blade compilation is a permissions problem, not an application bug.
 - A cached `bootstrap/cache/config.php` written by the container also makes host-side env overrides silently ineffective, and clearing it needs write access to that container-owned directory.
-- Command forms (run them in the container): `composer test` is the full gate (rector dry-run, peck, pint --test, phpstan, phpunit with `--coverage --min=85`); `composer fix` auto-fixes rector plus pint before committing; individual steps are `composer test:pint`, `composer test:phpstan`, `composer test:rector`, `composer test:peck`, `composer test:phpunit`. `composer serve` runs server, queue listener, pail and vite together.
+- Command forms (run them in the local development environment): `composer test` is the full gate (rector dry-run, peck, pint --test, phpstan, phpunit with `--coverage --min=85`); `composer fix` auto-fixes rector plus pint before committing; individual steps are `composer test:pint`, `composer test:phpstan`, `composer test:rector`, `composer test:peck`, `composer test:phpunit`. `composer serve` runs server, queue listener, pail and vite together.
 
 ## The test suite runs on two different database drivers
 
-- Local runs hit a real MySQL database (`starboard_testing`) and require a committed `.env.testing`; `composer test:phpunit` aborts without it. CI runs the identical suite on SQLite.
+- Local runs hit a real MySQL database (`starboard_testing`) and require a local, ignored `.env.testing`; `composer test:phpunit` aborts without it. CI runs the identical suite on SQLite.
 - Any raw SQL or migration behaviour that differs between the two drivers passes locally and fails on push. Escape LIKE wildcards with `!` and never with a backslash: MySQL treats a backslash as LIKE's default escape character, SQLite has no default escape character at all.
-- CI only fires on `master` and `issues/*`. Any other branch name gets no CI run. Branch names are kebab-case (`issues/12-short-description`), never snake_case.
+- CI runs on pushes to `master` and `issues/*`, and on pull requests targeting `master`. Branch names are kebab-case (`issues/12-short-description`), never snake_case.
 
 ## UserObserver is deliberately disabled under tests
 
