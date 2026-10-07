@@ -8,6 +8,17 @@ use Tests\TestCase;
 
 class DarkThemeTest extends TestCase
 {
+    public function test_faq_card_titles_are_white(): void
+    {
+        $contents = file_get_contents(resource_path('views/welcome.blade.php'));
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString(
+            '<div class="text-white mb-4 font-bold text-2xl">{{ $faq[\'title\'] }}</div>',
+            $contents,
+        );
+    }
+
     public function test_every_page_layout_forces_dark_theme(): void
     {
         $viewPaths = [

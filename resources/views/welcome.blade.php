@@ -42,7 +42,23 @@
                 </div>
             </div>
 
-            <div class="flex justify-center mt-16 mb-12">
+            <section id="app-preview" class="max-w-5xl mx-auto mt-16 mb-12" aria-label="{{ __('messages.welcome.app_preview') }}">
+                <div class="overflow-hidden rounded-2xl border border-gray-700 bg-black shadow-sm">
+                    <iframe
+                        class="aspect-video min-h-[200px] w-full border-0"
+                        src="https://www.youtube.com/embed/gWTeE74NwX4"
+                        title="{{ __('messages.welcome.app_preview') }}"
+                        width="960"
+                        height="540"
+                        loading="lazy"
+                        referrerpolicy="strict-origin-when-cross-origin"
+                        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowfullscreen
+                    ></iframe>
+                </div>
+            </section>
+
+            <div class="flex justify-center mb-12">
                 <a href="https://www.producthunt.com/products/starboard/launches/starboard-2?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-starboard-2" target="_blank" rel="noopener noreferrer"><img alt="Starboard - Surf the Web like a pro | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1078486&amp;theme=dark&amp;t=1772649373270"></a>
             </div>
 
@@ -88,7 +104,7 @@
                     @endphp
                     @foreach($faqs as $faq)
                         <div class="p-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-[#3E3E3A] shadow-sm">
-                            <div class="text-indigo-600 mb-4 font-bold text-2xl">{{ $faq['title'] }}</div>
+                            <div class="text-white mb-4 font-bold text-2xl">{{ $faq['title'] }}</div>
                             <p class="text-gray-500 dark:text-gray-400">{{ $faq['desc'] }}</p>
                         </div>
                     @endforeach

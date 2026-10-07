@@ -80,6 +80,7 @@ return [
         'catch_phrase' => 'Surf the Web like a pro',
         'get_started' => 'Get Started for Free',
         'view_features' => 'View Features',
+        'app_preview' => 'See Starboard in Action',
         'network_source_description' => 'Centrally manage all your platforms, from social media to internal developer portals.',
         'network_profile_description' => 'Aggregate and analyze your digital footprint across multiple sources with ease.',
         'network_tag_description' => 'Organize and categorize your network profiles effectively using tags.',

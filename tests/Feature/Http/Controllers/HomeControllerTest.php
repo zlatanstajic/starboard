@@ -27,6 +27,40 @@ class HomeControllerTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_landing_page_embeds_the_app_preview_in_both_languages(): void
+    {
+        foreach (['en' => 'See Starboard in Action', 'sr' => 'Pogledajte Starboard u akciji'] as $locale => $title) {
+            $response = $this->withSession(['locale' => $locale])->get(route('home'));
+
+            $response->assertOk();
+            $response->assertSee('src="https://www.youtube.com/embed/gWTeE74NwX4"', false);
+            $response->assertSee('title="'.$title.'"', false);
+            $response->assertSee('aspect-video min-h-[200px] w-full', false);
+            $response->assertSee('loading="lazy"', false);
+            $response->assertSee('allowfullscreen', false);
+            $response->assertDontSee('autoplay=1', false);
+            $response->assertDontSee('app-preview-title', false);
+            $response->assertSeeInOrder([
+                'https://www.youtube.com/embed/gWTeE74NwX4',
+                'https://www.producthunt.com/products/starboard',
+                'id="public-lists"',
+            ], false);
+        }
+    }
+
+    public function test_app_preview_is_absent_from_login_and_dashboard_pages(): void
+    {
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertDontSee('youtube.com/embed/gWTeE74NwX4', false);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->get(route('dashboard'))
+            ->assertOk()
+            ->assertDontSee('youtube.com/embed/gWTeE74NwX4', false);
+    }
+
     public function test_landing_page_lists_public_filter_lists_with_their_public_links(): void
     {
         $owner = User::withoutEvents(fn (): User => User::factory()->create());

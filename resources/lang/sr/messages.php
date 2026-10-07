@@ -80,6 +80,7 @@ return [
         'catch_phrase' => 'Surfujte internetom kao profesionalac',
         'get_started' => 'Započnite besplatno',
         'view_features' => 'Pogledajte opcije',
+        'app_preview' => 'Pogledajte Starboard u akciji',
         'network_source_description' => 'Centralizovano upravljajte svim platformama, od društvenih mreža do internih razvojnih portala.',
         'network_profile_description' => 'Objedinite i analizirajte svoj digitalni otisak kroz više izvora sa lakoćom.',
         'network_tag_description' => 'Organizujte i kategorišite svoje mrežne profile efikasno koristeći tagove.',
